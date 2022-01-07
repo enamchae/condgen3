@@ -9,109 +9,178 @@
 	const AND = Symbol("and");
 	const VAR = Symbol("var");
 	const NOT = Symbol("not");
-	
-	const Var = (id: number) => ({
-		type: VAR,
-		id,
+
+	class Node {
+		type: Symbol;
+
+		constructor(type: Symbol) {
+			this.type = type;
+		}
+
+		eq(target: Node): boolean {
+			return this.hashCode === target.hashCode;
+		}
+
+		isInverse(target: Node): boolean {
+			throw new TypeError("not implemented");
+		}
+
+		get hashCode(): number {
+			// throw new TypeError("not implemented");
+			console.warn("Not implemented");
+			return -Infinity;
+		}
+	}
+
+	class Var extends Node {
+		id: number;
+
+		constructor(id: number) {
+			super(VAR);
+
+			this.id = id;
+		}
 	
 		get hashCode() {
 			return this.id;
-		},
+		}
+
+		isInverse(target: Node): boolean {
+
+		}
 
 		toString() {
-			return String.fromCharCode(id + "A".charCodeAt(0));
-		},
-	});
-	
-	const Not = child => ({
-		type: NOT,
-		child,
+			return String.fromCharCode(this.id + "A".charCodeAt(0));
+		}
+	}
+
+	class Not extends Node {
+		child: Node;
+
+		constructor(child: Node) {
+			super(NOT);
+
+			this.child = child;
+		}
 	
 		get hashCode() {
-			// currently only supports Var
 			return -1 * this.child.hashCode - 1;
-		},
+		}
 
 		toString() {
-			return `!${child}`;
-		},
-	});
+			return `!${this.child}`;
+		}
+	}
 
-	const And = (...children) => ({
-		type: AND,
-		children,
+	class And extends Node {
+		children: Node[];
+
+		constructor(...children: Node[]) {
+			super(AND);
+
+			this.children = children;
+		}
 
 		toString() {
-			return this.children.join(" && ");
-		},
-	});
-	
-	const Or = (...children) => {
-		const likeTermsMap: Map<number, Set<number>> = new Map();
-	
-		children.forEach((child, i) => {
-			console.log(child);
+			return this.children.map(expr => `(${expr})`).join(" && ");
+		}
 
-			switch (child.type) {
-				case AND: {
-					for (const subchild of child.children) {
-						// likeTermsMap.set(subchild.hashCode, i);
-					}
-					break;
+		divide(node: Node) {
+			const newChildren = [];
+			let found = false;
+
+			for (const child of this.children) {
+				if (child.eq(node) && !found) {
+					found = true;
+				} else {
+					newChildren.push(child);
 				}
-	
-				case NOT:
-				case VAR: {
-					const indexes = likeTermsMap.get(child.hashCode) ?? new Set();
-					indexes.add(i);
-					likeTermsMap.set(child.hashCode, indexes);
-					break;
-				}
-	
-				default:
-					throw new TypeError("not supported");
 			}
-		});
-	
-		return {
-			type: OR,
-			children,
-			likeTermsMap,
 
-			toString() {
-				return this.children.join(" || ");
-			},
+			return new And(...newChildren);
+		}
+	}
 
-			simplify() {
-				for (const [key, indexes] of this.likeTermsMap) {
-					if (indexes.size < 2) continue;
+	class Or extends Node {
+		children: Node[];
 
-					// Factor out the like term
-					const newExpr = Or(
-						And(
-							getExpFromHashCode(key), // todo implement
-							Or(...this.children.filter((_, i) => indexes.has(i)).map(expr => expr.divide(getExpFromHashCode(key)))),
-						),
-						...this.children.filter((_, i) => !indexes.has(i)), // Unaffected terms
-					);
+		likeTermsMap: Map<number, Set<number>>;
+
+		constructor(...children: Node[]) {
+			super(OR);
+
+			this.children = children;
+
+			this.likeTermsMap = new Map();
+		
+			children.forEach((child, i) => {
+				switch (child.type) {
+					case AND: {
+						for (const subchild of (child as And).children) {
+							const indexes = this.likeTermsMap.get(subchild.hashCode) ?? new Set();
+							indexes.add(i);
+							this.likeTermsMap.set(subchild.hashCode, indexes);
+						}
+						break;
+					}
+		
+					case NOT:
+					case VAR: {
+						const indexes = this.likeTermsMap.get(child.hashCode) ?? new Set();
+						indexes.add(i);
+						this.likeTermsMap.set(child.hashCode, indexes);
+						break;
+					}
+		
+					default:
+						throw new TypeError("not supported");
 				}
-			},
-		};
-	};
+			});
+		}
+
+		toString() {
+			return this.children.map(expr => `${expr}`).join(" || ");
+		}
+
+		simplify() {
+			for (const [key, indexes] of this.likeTermsMap) {
+				if (indexes.size < 2) continue;
+
+				// Factor out the like term
+				const newExpr = new Or(
+					new And(
+						getExpFromHashCode(key), // todo implement
+						new Or(...this.children.filter((_, i) => indexes.has(i)).map(expr => (expr as And).divide(getExpFromHashCode(key)))),
+					),
+					...this.children.filter((_, i) => !indexes.has(i)), // Unaffected terms
+				);
+
+				return newExpr;
+			}
+		}
+	}
+
+	// temp; only works on vars so far
+	const getExpFromHashCode = (hashCode: number) =>
+			hashCode >= 0
+					? new Var(hashCode)
+					: new Not(new Var(-hashCode - 1));
 	
-	const initialExpr = Or(...truthTable.reduce((cumArray, truth, i) => {
+	const initialExpr = new Or(...truthTable.reduce((cumArray, truth, i) => {
 		if (!truth) return cumArray;
 
-		return [...cumArray, And(...toBits(i).map((bit, i) => {
+		return [...cumArray, new And(...toBits(i).map((bit, i) => {
 			return bit
-					? Var(i)
-					: Not(Var(i));
+					? new Var(i)
+					: new Not(new Var(i));
 		}))];
 	}, []));
 
 	console.log(initialExpr);
 
+	console.log(initialExpr.simplify());
+
 	// console.log(Or(Var(0), Var(1), Var(0), Not(Var(0))));
 
-	document.body.textContent = initialExpr.toString();
+	document.body.textContent = initialExpr.simplify().toString();
 })();
