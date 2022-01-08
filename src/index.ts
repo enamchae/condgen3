@@ -1,4 +1,9 @@
 (() => {
+	const logged = value => {
+		console.log(value);
+		return value;
+	};
+
 	// Input
 	const truthTable = [false, true, true, true];
 	const nInputBits = 2;
@@ -99,17 +104,19 @@
 			return `!${this.child}`;
 		}
 
-		simplify() {
-			const simplifiedChild = this.child.simplify();
+		simplify(deep=true) {
+			const currentChild = deep
+					? this.child.simplify()
+					: this.child;
 
 			// Constant
-			if (simplifiedChild.type === CONST) {
-				return new Const((simplifiedChild as Const).value);
+			if (currentChild.type === CONST) {
+				return new Const((currentChild as Const).value);
 			}
 
 			// Double negation
-			if (simplifiedChild.type === NOT) {
-				return (simplifiedChild as Not).child;
+			if (currentChild.type === NOT) {
+				return (currentChild as Not).child;
 			}
 
 			// DeMorgan's
@@ -136,28 +143,31 @@
 		}
 
 		divide(node: Node) {
-			const newChildren = [];
 			let found = false;
 
-			for (const child of this.children) {
+			return new And(...this.children.filter(child => {
 				if (child.eq(node) && !found) {
 					found = true;
-				} else {
-					newChildren.push(child);
+					return false;
 				}
-			}
-
-			return new And(...newChildren);
+				return true;
+			}));
 		}
 
 		simplify(deep=true): Node {
+			// Null (Empty product)
+			if (this.children.length === 0) {
+				return new Const(true);
+			}
+
+
 			const startingChildren = deep
 					? this.children.map(node => node.simplify())
 					: this.children;
 
 			// Unary
-			if (this.children.length === 1) {
-				return this.children[0];
+			if (startingChildren.length === 1) {
+				return startingChildren[0];
 			}
 
 			let currentExpr: And = new And(...startingChildren);
@@ -172,6 +182,14 @@
 						return new Const(false);
 					}
 					newChildren.push(child);
+				}
+				
+				if (newChildren.length === 0) {
+					return new Const(true);
+				}
+
+				if (newChildren.length === 1) {
+					return newChildren[0];
 				}
 
 				currentExpr = new And(...newChildren);
@@ -226,8 +244,13 @@
 			return likeTermsMap;
 		}
 
-		// TODO generalize
 		simplify(deep=true) {
+			// Null (Empty sum)
+			if (this.children.length === 0) {
+				return new Const(false);
+			}
+
+
 			const startingChildren = deep
 					? this.children.map(node => node.simplify())
 					: this.children;
@@ -279,12 +302,6 @@
 
 				currentExpr = new Or(...newChildren);
 			}
- 			
-
-			console.log(currentExpr);
-
-			// Pigeonhole
-			// ...
 
 			// Factoring
 			for (const [key, indexes] of currentExpr.likeTermsMap()) {
@@ -294,19 +311,23 @@
 				const newExpr = new Or(
 					new And(
 						getExpFromHashCode(key),
-						new Or(...currentExpr.children.filter((_, i) => indexes.has(i)).map(expr => (expr as And).divide(getExpFromHashCode(key)))),
-					).simplify(),
+						new Or(...currentExpr.children
+								.filter((_, i) => indexes.has(i))
+								.map(expr => (expr as And).divide(getExpFromHashCode(key))) // TODO watch out, might not be And in general
+						),
+					),
 					...currentExpr.children.filter((_, i) => !indexes.has(i)), // Unaffected terms
-				);
-
-				console.log("new expr", newExpr)
+				).simplify();
 
 				return newExpr;
 			}
 
+			// Redundant literal
+			// ...
+
 			// ...
 			
-			return this;
+			return currentExpr;
 		}
 	}
 
