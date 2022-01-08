@@ -8,26 +8,32 @@
 	const OR = Symbol("or");
 	const AND = Symbol("and");
 	const VAR = Symbol("var");
+	const CONST = Symbol("const");
 	const NOT = Symbol("not");
 
 	class Node {
-		type: Symbol;
+		type: symbol;
 
-		constructor(type: Symbol) {
+		constructor(type: symbol) {
 			this.type = type;
 		}
 
-		eq(target: Node): boolean {
-			return this.hashCode === target.hashCode;
+		eq(node: Node): boolean {
+			return this.hashCode === node.hashCode;
 		}
 
-		isInverse(target: Node): boolean {
+		isInverse(node: Node): boolean {
 			throw new TypeError("not implemented");
+		}
+
+		simplify(): Node {
+			console.warn(`not implemented: tried to simplify ${String(this.type)}`);
+			return this;
 		}
 
 		get hashCode(): number {
 			// throw new TypeError("not implemented");
-			console.warn("Not implemented");
+			console.warn(`not implemented: tried to get hash of ${String(this.type)}`);
 			return -Infinity;
 		}
 	}
@@ -45,12 +51,34 @@
 			return this.id;
 		}
 
-		isInverse(target: Node): boolean {
+/* 		isInverse(node: Node): boolean {
 
+		} */
+
+		simplify(): Node {
+			return this;
 		}
 
 		toString() {
 			return String.fromCharCode(this.id + "A".charCodeAt(0));
+		}
+	}
+
+	class Const extends Node {
+		value: boolean;
+
+		constructor(value: boolean) {
+			super(CONST);
+
+			this.value = value;
+		}
+
+		toString() {
+			return this.value ? "1" : "0";
+		}
+
+		simplify() {
+			return this;
 		}
 	}
 
@@ -69,6 +97,28 @@
 
 		toString() {
 			return `!${this.child}`;
+		}
+
+		simplify() {
+			const simplifiedChild = this.child.simplify();
+
+			// Constant
+			if (simplifiedChild.type === CONST) {
+				return new Const((simplifiedChild as Const).value);
+			}
+
+			// Double negation
+			if (simplifiedChild.type === NOT) {
+				return (simplifiedChild as Not).child;
+			}
+
+			// DeMorgan's
+			// ...
+
+			// XOR
+			// ...
+
+			return this;
 		}
 	}
 
@@ -99,64 +149,164 @@
 
 			return new And(...newChildren);
 		}
+
+		simplify(deep=true): Node {
+			const startingChildren = deep
+					? this.children.map(node => node.simplify())
+					: this.children;
+
+			// Unary
+			if (this.children.length === 1) {
+				return this.children[0];
+			}
+
+			let currentExpr: And = new And(...startingChildren);
+
+			// Identity and annulment
+			{
+				const newChildren = [];
+				for (const child of currentExpr.children) {
+					if (child.type === CONST) {
+						if ((child as Const).value === true) continue;
+
+						return new Const(false);
+					}
+					newChildren.push(child);
+				}
+
+				currentExpr = new And(...newChildren);
+			}
+
+			// ...
+
+			return currentExpr;
+		}
 	}
 
 	class Or extends Node {
 		children: Node[];
 
-		likeTermsMap: Map<number, Set<number>>;
-
 		constructor(...children: Node[]) {
 			super(OR);
 
 			this.children = children;
-
-			this.likeTermsMap = new Map();
-		
-			children.forEach((child, i) => {
-				switch (child.type) {
-					case AND: {
-						for (const subchild of (child as And).children) {
-							const indexes = this.likeTermsMap.get(subchild.hashCode) ?? new Set();
-							indexes.add(i);
-							this.likeTermsMap.set(subchild.hashCode, indexes);
-						}
-						break;
-					}
-		
-					case NOT:
-					case VAR: {
-						const indexes = this.likeTermsMap.get(child.hashCode) ?? new Set();
-						indexes.add(i);
-						this.likeTermsMap.set(child.hashCode, indexes);
-						break;
-					}
-		
-					default:
-						throw new TypeError("not supported");
-				}
-			});
 		}
 
 		toString() {
 			return this.children.map(expr => `${expr}`).join(" || ");
 		}
 
-		simplify() {
-			for (const [key, indexes] of this.likeTermsMap) {
+		likeTermsMap(): Map<number, Set<number>> {
+			const likeTermsMap = new Map();
+		
+			this.children.forEach((child, i) => {
+				switch (child.type) {
+					case AND: {
+						for (const subchild of (child as And).children) {
+							const indexes = likeTermsMap.get(subchild.hashCode) ?? new Set();
+							indexes.add(i);
+							likeTermsMap.set(subchild.hashCode, indexes);
+						}
+						break;
+					}
+		
+					case NOT:
+					case VAR: {
+						const indexes = likeTermsMap.get(child.hashCode) ?? new Set();
+						indexes.add(i);
+						likeTermsMap.set(child.hashCode, indexes);
+						break;
+					}
+		
+					default:
+						console.warn(`not supported: tried to add ${String(child.type)} to like terms map`);
+				}
+			});
+
+			return likeTermsMap;
+		}
+
+		// TODO generalize
+		simplify(deep=true) {
+			const startingChildren = deep
+					? this.children.map(node => node.simplify())
+					: this.children;
+
+			// Unary
+			if (startingChildren.length === 1) {
+				return startingChildren[0];
+			}
+
+			let currentExpr: Or = new Or(...startingChildren);
+
+			// Complement
+			{
+				// Currently only works for Vars and Not(Var)s
+				const unmatchedInversePairs: Map<number, number> = new Map();
+				const matchedInverseCounts: Map<number, number> = new Map();
+				/* for (const [key, indexes] of this.likeTermsMap) {
+					if (new )
+
+				} */
+				// Count the number of inverses
+				for (const child of currentExpr.children) {
+					const hash = child.hashCode;
+					const inverseHash = new Not(child).hashCode;
+
+					if (unmatchedInversePairs.get(inverseHash) ?? 0 > 0) {
+						matchedInverseCounts.set(hash, (matchedInverseCounts.get(hash) ?? 0) + 1);
+						matchedInverseCounts.set(inverseHash, (matchedInverseCounts.get(inverseHash) ?? 0) + 1);
+
+						unmatchedInversePairs.set(inverseHash, unmatchedInversePairs.get(inverseHash) - 1);
+					} else {
+						unmatchedInversePairs.set(hash, (unmatchedInversePairs.get(hash) ?? 0) + 1);
+					}
+				}
+
+				// Filter all counted nodes
+				const newChildren = currentExpr.children.filter(child => {
+					const hash = child.hashCode;
+
+					if ((matchedInverseCounts.get(hash) ?? 0) === 0) return true;
+
+					matchedInverseCounts.set(hash, matchedInverseCounts.get(hash) - 1);
+					return false;
+				});
+
+				if (newChildren.length === 0) {
+					return new Const(true);
+				}
+
+				currentExpr = new Or(...newChildren);
+			}
+ 			
+
+			console.log(currentExpr);
+
+			// Pigeonhole
+			// ...
+
+			// Factoring
+			for (const [key, indexes] of currentExpr.likeTermsMap()) {
 				if (indexes.size < 2) continue;
 
 				// Factor out the like term
 				const newExpr = new Or(
 					new And(
-						getExpFromHashCode(key), // todo implement
-						new Or(...this.children.filter((_, i) => indexes.has(i)).map(expr => (expr as And).divide(getExpFromHashCode(key)))),
-					),
-					...this.children.filter((_, i) => !indexes.has(i)), // Unaffected terms
+						getExpFromHashCode(key),
+						new Or(...currentExpr.children.filter((_, i) => indexes.has(i)).map(expr => (expr as And).divide(getExpFromHashCode(key)))),
+					).simplify(),
+					...currentExpr.children.filter((_, i) => !indexes.has(i)), // Unaffected terms
 				);
+
+				console.log("new expr", newExpr)
 
 				return newExpr;
 			}
+
+			// ...
+			
+			return this;
 		}
 	}
 
@@ -178,9 +328,11 @@
 
 	console.log(initialExpr);
 
-	console.log(initialExpr.simplify());
+	console.log("SIMPLIFYING!!!");
+	const simplified = initialExpr.simplify();
+	console.log("simplified: ", simplified);
 
 	// console.log(Or(Var(0), Var(1), Var(0), Not(Var(0))));
 
-	document.body.textContent = initialExpr.simplify().toString();
+	document.body.textContent = simplified.toString();
 })();
