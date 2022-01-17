@@ -1,4 +1,4 @@
-import {Var, Not, And, Or} from "./Algebra";
+/* import {Var, Not, And, Or} from "./Algebra";
 
 (() => {
 
@@ -27,4 +27,15 @@ import {Var, Not, And, Or} from "./Algebra";
 	// console.log(Or(Var(0), Var(1), Var(0), Not(Var(0))));
 
 	document.body.textContent = simplified.toString();
+})(); */
+
+import {buildKarnaughMap, buildKarnaughPrefix} from "./Karnaugh";
+
+(() => {
+	const truthTable = [false, true, false, true];
+
+	const map = buildKarnaughMap(truthTable);
+	const prefix = buildKarnaughPrefix(map);
+
+	console.log(map, prefix);
 })();
