@@ -66,7 +66,7 @@ class KarnaughMatrix<T> {
 	}
 
 	nInputBits() {
-		return Math.round(Math.log2(this.array.length));
+		return Math.log2(this.array.length);
 	}
 
 	nDimensions() {
@@ -74,7 +74,7 @@ class KarnaughMatrix<T> {
 	}
 }
 
-const grayOrder = [0b00, 0b01, 0b11, 0b10];
+const grayOrder = [0b00, 0b01, 0b11, 0b10]; // smallest bit => first input
 
 const range = max => {
 	const array = [];
@@ -85,8 +85,10 @@ const range = max => {
 };
 
 export const buildKarnaughMap = (truthTable: boolean[]) => {
-	const nInputBits = Math.round(Math.log2(truthTable.length));
+	const nInputBits = Math.log2(truthTable.length);
 	const nDimensions = Math.ceil(nInputBits / 2);
+
+	if (nInputBits % 1 !== 0) throw new RangeError("Truth table size is not a power of 2");
 
 	const getValueFromTruthTable = (...inputs: boolean[]) => {
 		const index = inputs.reduce((value, input, i) => value + (Number(input) << i), 0);
@@ -99,7 +101,7 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 
 		for (const index of KarnaughMatrix.indexToCoords(i, nDimensions)) {
 			associatedInputs.push(Boolean(grayOrder[index] & 0b1));
-			associatedInputs.push(Boolean(grayOrder[index] >> 1 & 0b1));
+			associatedInputs.push(Boolean(grayOrder[index] >>> 1 & 0b1));
 		}
 
 		map.array[i] = getValueFromTruthTable(...associatedInputs);
@@ -149,7 +151,7 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	const nInputBits = Math.round(Math.log2(truthTable.length));
 	const nDimensions = Math.ceil(nInputBits / 2);
 
-	const mapGroups = new Map<number[], HashSet<number[]>>();
+	const mapGroups = new Map<number[], Set<number[]>>();
 
 	map.array.forEach((value, i) => {
 		if (value === false) return;
@@ -159,10 +161,11 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions);
 
 		// Find groups based on the single-dimension distances
-		const dimensionHash = (dimensions: number[]) =>
-				dimensions.reduce((value, length, nDimension) => value + (BigInt(length) << (2n * BigInt(nDimension))), 0n);
+		/*const dimensionHash = (dimensions: number[]) =>
+				dimensions.reduce((value, length, nDimension) => value + (BigInt(length) << (2n * BigInt(nDimension))), 0n); */
 
-		const groups = new HashSet<number[]>(dimensionHash);
+		// const groups = new HashSet<number[]>(dimensionHash);
+		const groups = new Set<number[]>();
 		// const redundantGroups = new HashSet<number[]>(dimensionHash);
 
 		const iterateCoordPossibilities = (dimensions: number[], indexOfVariedDimension: number=0) => {
@@ -247,3 +250,61 @@ const testDimensions = (prefix: KarnaughMatrix<number>, coords: number[], dimens
 
 	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
 };
+
+export const generateExpression = (groups: Map<number[], Set<number[]>>) => {
+	/* // Associated variable for an axis of a group of size 2, with the given offset along an axis
+	// 0 is A, 1 is NOT(A), 2 is B, 3 is NOT(B), …
+	const constants = [3, 0, 1, 2]; */
+
+	const parts = [];
+
+	for (const [offset, sizes] of groups) {
+		const grays = offset.map(coord => grayOrder[coord]);
+
+		for (const size of sizes) {
+			const dependents = interpretGroup(offset, size, grays);
+			parts.push(dependents);
+		}
+	}
+
+	return parts.map(part => {
+		return part.map(factor => {
+			const letterId = Math.floor(factor / 2);
+			const inverted = factor % 2 !== 0;
+
+			return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
+		}).join("");
+	}).join(" + ");
+}
+
+const interpretGroup = (offset: number[], size: number[], grays: number[]): number[] => {
+	const dependents = [];
+
+	const A = 0;
+	const NOT_A = 1;
+	const B = 2;
+	const NOT_B = 3;
+	const variableOrderForSize2 = [NOT_B, A, B, NOT_A];
+
+	for (let i = 0; i < size.length; i++) {
+		const varOffset = i * 4; // Number to be added to the `dependents` value to represent other variables (C, D, E, etc)
+
+		switch (size[i]) {
+			case 0: { // 1: 2 variables along this axis matter
+				const gray = grays[i];
+				dependents.push((gray & 0b1 ? A : NOT_A) + varOffset);
+				dependents.push((gray >> 1 & 0b1 ? B : NOT_B) + varOffset);
+				break;
+			}
+
+			case 1: // 2: 1 variable along this axis matters
+				dependents.push(variableOrderForSize2[offset[i]] + varOffset);
+				break;
+
+			case 2: // 4: 0 variables along this axis matter
+				continue;
+		}
+	}
+
+	return dependents;
+}
