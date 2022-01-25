@@ -4,7 +4,7 @@ import {combineBoolean} from "./permute";
 /**
  * Matrix with an arbitrary number of dimensions and at most 4 units long in each dimension
  */
- class KarnaughMatrix<T> {
+class KarnaughMatrix<T> {
 	array: T[];
 
 	constructor() {
@@ -41,7 +41,7 @@ import {combineBoolean} from "./permute";
 		return this;
 	}
 
-	forEach(fn) {
+	forEach(fn: (value: T, coords: number[]) => void) {
 		const nDimensions = this.nDimensions();
 
 		this.array.forEach((value, i) => {
@@ -100,7 +100,12 @@ export const buildKarnaughPrefix = (map: KarnaughMatrix<boolean>) => {
 
 		let sum = Number(map.array[i]);
 
-		// Method for finding N-dimensional prefix sum element	
+		// Method for finding N-dimensional prefix sum element
+		//  • Take the current element in the Karnaugh map
+		//  • ADD all the elements that are [1 position behind in 1 direction] (ie, adjacent elements in 1D)
+		//  • SUBTRACT all the elements that are [1 position behind in 2 directions] (ie, diagonals in 2D)
+		//  • ADD all the elements that are [1 position behind in 3 directions] (ie, diagonals in 3D)
+		//    ⋮
 		for (let nShiftedDimensions = 1; nShiftedDimensions <= nDimensions; nShiftedDimensions++) {
 			const sign = nShiftedDimensions % 2 === 0 ? -1 : 1;
 
@@ -128,7 +133,7 @@ export const getSimplestExpression = (truthTable: boolean[]) => {
 	const nInputBits = Math.round(Math.log2(truthTable.length));
 	const nDimensions = Math.ceil(nInputBits / 2);
 
-	map.forEach((value, i) => {
+	map.array.forEach((value, i) => {
 		if (value === false) return;
 
 		const coords = KarnaughMatrix.indexToCoords(i, nDimensions);
@@ -137,7 +142,7 @@ export const getSimplestExpression = (truthTable: boolean[]) => {
 
 		// Find groups based on the single-dimension distances
 		const dimensionHash = (dimensions: number[]) =>
-				dimensions.reduce((value, length, nDimension) => value + (BigInt(length) << (2n * BigInt(nDimension))), 0n) ;
+				dimensions.reduce((value, length, nDimension) => value + (BigInt(length) << (2n * BigInt(nDimension))), 0n);
 
 		const groups = new HashSet<number[]>(dimensionHash);
 		// const redundantGroups = new HashSet<number[]>(dimensionHash);
