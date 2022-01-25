@@ -32,12 +32,12 @@
 import {buildKarnaughMap, buildKarnaughPrefix, getSimplestExpression} from "./Karnaugh";
 
 (() => {
-	const truthTable = [false, true, false, true];
+	const truthTable = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true];
 
-/* 	const map = buildKarnaughMap(truthTable);
+	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
 
-	// console.log(map, prefix); */
+	console.log(map, prefix);
 
 	getSimplestExpression(truthTable);
 })();

@@ -1,4 +1,5 @@
 import {HashSet} from "./hashcollection";
+import {combineBoolean} from "./permute";
 
 /**
  * Matrix with an arbitrary number of dimensions and at most 4 units long in each dimension
@@ -10,14 +11,23 @@ import {HashSet} from "./hashcollection";
 		this.array = [];
 	}
 
-	static coordsToIndex(...indexes: number[]) {
-		return indexes.reduce((value, index, nDimension) => value + index * 4**nDimension, 0);
+	static coordsToIndex(...coords: number[]) {
+		let index = 0;
+		for (let nDimension = 0; nDimension < coords.length; nDimension++) {
+			const coord = coords[nDimension];
+			if (coord < 0 || coord >= 4) {
+				return -1;
+			}
+
+			index += coord * 4**nDimension;
+		}
+		return index;
 	}
 
 	static indexToCoords(index: number, nDimensions: number) {
 		const indexes: number[] = [];
 		for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
-			indexes.push(Math.floor(index / 4**nDimension));
+			indexes.push(Math.floor(index / 4**nDimension) % 4);
 		}
 		return indexes;
 	}
@@ -67,7 +77,7 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 		return truthTable[index];
 	};
 
-	const map: boolean[] = [];
+	const map = new KarnaughMatrix<boolean>();
 	for (let i = 0; i < truthTable.length; i++) {
 		const associatedInputs = [];
 
@@ -76,31 +86,36 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 			associatedInputs.push(Boolean(grayOrder[index] >> 1 & 0b1));
 		}
 
-		map[i] = getValueFromTruthTable(...associatedInputs);
+		map.array[i] = getValueFromTruthTable(...associatedInputs);
 	}
 	return map;
 };
 
-export const buildKarnaughPrefix = (map: boolean[]) => {
-	const nInputBits = Math.round(Math.log2(map.length));
-	const nDimensions = Math.ceil(nInputBits / 2);
+export const buildKarnaughPrefix = (map: KarnaughMatrix<boolean>) => {
+	const nDimensions = map.nDimensions();
 
-	const prefix: number[] = [];
-	for (let i = 0; i < map.length; i++) {
-		const currentDimensionalCoords = KarnaughMatrix.indexToCoords(i, nDimensions);
+	const prefix = new KarnaughMatrix<number>();
+	for (let i = 0; i < map.array.length; i++) {
+		const currentCoords = KarnaughMatrix.indexToCoords(i, nDimensions);
 
-		let sum = Number(map[i]);
-		// Sum together the adjacent element of the map in each direction
-		for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
-			// Get the index of the relevant element
-			const addendIndex = currentDimensionalCoords.reduce((value, currentIndex, i) => {
-				return value + (4**i) * (nDimension === i ? currentIndex - 1 : currentIndex);
-			}, 0);
+		let sum = Number(map.array[i]);
 
-			sum += Number(prefix[addendIndex] ?? 0);
+		// Method for finding N-dimensional prefix sum element	
+		for (let nShiftedDimensions = 1; nShiftedDimensions <= nDimensions; nShiftedDimensions++) {
+			const sign = nShiftedDimensions % 2 === 0 ? -1 : 1;
+
+			for (const combo of combineBoolean(nDimensions, nShiftedDimensions)) {
+				// Shift the current coords
+				const coords = [];
+				for (let j = 0; j < currentCoords.length; j++) {
+					coords[j] = combo[j] ? currentCoords[j] - 1 : currentCoords[j];
+				}
+
+				sum += sign * (prefix.get(...coords) ?? 0);
+			}
 		}
 
-		prefix[i] = sum;
+		prefix.array[i] = sum;
 	}
 
 	return prefix;
@@ -141,13 +156,10 @@ export const getSimplestExpression = (truthTable: boolean[]) => {
 					iterateCoordPossibilities(dimensions, indexOfVariedDimension + 1);
 				} else {
 					const groupFound = testDimensions(prefix, coords, dimensions, nDimensions);
+					if (!groupFound) break;
 
-					if (groupFound) {
-						anyGroupFound = true;
-						lastValidDistance = distance;
-					} else {
-						break;
-					}
+					anyGroupFound = true;
+					lastValidDistance = distance;
 				}
 			}
 
@@ -162,13 +174,13 @@ export const getSimplestExpression = (truthTable: boolean[]) => {
 	});
 };
 
-const getSingleDimensionDistances = (map: boolean[], coords: number[], nDimensions: number) => {
+const getSingleDimensionDistances = (map: KarnaughMatrix<boolean>, coords: number[], nDimensions: number) => {
 	const singleDimensionDistances = new Array(nDimensions).fill(0); // log2(distance)
 	for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
 		// Check for width 2
 		const testCoords = coords.map((index, j) => (j === nDimension) ? (index + 1) % 4 : index);
 
-		if (map[KarnaughMatrix.coordsToIndex(...testCoords)] === true) {
+		if (map.get(...testCoords) === true) {
 			singleDimensionDistances[nDimension] = 1;
 		} else {
 			continue;
@@ -180,8 +192,8 @@ const getSingleDimensionDistances = (map: boolean[], coords: number[], nDimensio
 		const testCoords2 = coords.map((index, j) => (j === nDimension) ? (index + 2) % 4 : index);
 		const testCoords3 = coords.map((index, j) => (j === nDimension) ? (index + 3) % 4 : index);
 
-		if (map[KarnaughMatrix.coordsToIndex(...testCoords2)] === true
-				&& map[KarnaughMatrix.coordsToIndex(...testCoords3)] === true) {
+		if (map.get(...testCoords2) === true
+				&& map.get(...testCoords3) === true) {
 			singleDimensionDistances[nDimension] = 2;
 		}
 	}
@@ -189,17 +201,16 @@ const getSingleDimensionDistances = (map: boolean[], coords: number[], nDimensio
 	return singleDimensionDistances;
 };
 
-const testDimensions = (prefix: number[], coords: number[], dimensions: number[], nDimensions: number): boolean => {
+const testDimensions = (prefix: KarnaughMatrix<number>, coords: number[], dimensions: number[], nDimensions: number): boolean => {
 	const farCoords = coords.map((index, j) => index + 2**dimensions[j] - 1);
 
 	// Count the number of trues
-	const prefixResult = prefix[KarnaughMatrix.coordsToIndex(...farCoords)]
+	const prefixResult = prefix.get(...farCoords)
 			- farCoords.reduce((sum, farIndex, j) => {
 				const targetCoords = coords.map((index, nDimension) => nDimension === j ? index - 1 : farIndex);
-				const newIndex = KarnaughMatrix.coordsToIndex(...targetCoords);
-				return sum + prefix[newIndex];
-			}, 0)
-			+ (nDimensions - 1) * prefix[KarnaughMatrix.coordsToIndex(...coords.map(index => index - 1))];
+				return sum + prefix.get(...targetCoords);
+			}, 0);
+			+ (nDimensions - 1) * prefix.get(...coords.map(index => index - 1));
 
 	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
 };
