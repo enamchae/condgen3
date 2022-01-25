@@ -29,15 +29,15 @@
 	document.body.textContent = simplified.toString();
 })(); */
 
-import {buildKarnaughMap, buildKarnaughPrefix, getSimplestExpression} from "./Karnaugh";
+import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups} from "./Karnaugh";
 
 (() => {
-	const truthTable = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true];
+	const truthTable = [false, true, false, true, true, false, true, false];
 
 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
 
 	console.log(map, prefix);
 
-	getSimplestExpression(truthTable);
+	console.log([...findKarnaughGroups(truthTable)].map(([coords, set]) => [coords, [...set]]));
 })();

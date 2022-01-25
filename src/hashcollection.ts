@@ -155,4 +155,8 @@ export class HashSet<T> extends HashCollection<T> {
 	values() {
 		return this.#hashCodeMap.values();
 	}
+
+	get size() {
+		return this.#hashCodeMap.size;
+	}
 }
