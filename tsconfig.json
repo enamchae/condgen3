@@ -2,6 +2,7 @@
 	"compilerOptions": {
 		
 		"target": "esnext",
-		"downlevelIteration": true
+		"downlevelIteration": true,
+		"useDefineForClassFields": true,
 	},
 }

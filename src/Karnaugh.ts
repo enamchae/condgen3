@@ -1,3 +1,5 @@
+import {HashSet} from "./hashcollection";
+
 /**
  * Matrix with an arbitrary number of dimensions and at most 4 units long in each dimension
  */
@@ -8,11 +10,11 @@
 		this.array = [];
 	}
 
-	static indexesToTrueIndex(...indexes: number[]) {
+	static coordsToIndex(...indexes: number[]) {
 		return indexes.reduce((value, index, nDimension) => value + index * 4**nDimension, 0);
 	}
 
-	static trueIndexToIndexes(index: number, nDimensions: number) {
+	static indexToCoords(index: number, nDimensions: number) {
 		const indexes: number[] = [];
 		for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
 			indexes.push(Math.floor(index / 4**nDimension));
@@ -21,11 +23,11 @@
 	}
 	
 	get(...indexes: number[]) {
-		return this.array[KarnaughMatrix.indexesToTrueIndex(...indexes)];
+		return this.array[KarnaughMatrix.coordsToIndex(...indexes)];
 	}
 
 	set(value: T, ...indexes: number[]) {
-		this.array[KarnaughMatrix.indexesToTrueIndex(...indexes)] = value;
+		this.array[KarnaughMatrix.coordsToIndex(...indexes)] = value;
 		return this;
 	}
 
@@ -33,7 +35,7 @@
 		const nDimensions = this.nDimensions();
 
 		this.array.forEach((value, i) => {
-			fn(value, KarnaughMatrix.trueIndexToIndexes(i, nDimensions));
+			fn(value, KarnaughMatrix.indexToCoords(i, nDimensions));
 		});
 	}
 
@@ -69,7 +71,7 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 	for (let i = 0; i < truthTable.length; i++) {
 		const associatedInputs = [];
 
-		for (const index of KarnaughMatrix.trueIndexToIndexes(i, nDimensions)) {
+		for (const index of KarnaughMatrix.indexToCoords(i, nDimensions)) {
 			associatedInputs.push(Boolean(grayOrder[index] & 0b1));
 			associatedInputs.push(Boolean(grayOrder[index] >> 1 & 0b1));
 		}
@@ -85,11 +87,11 @@ export const buildKarnaughPrefix = (map: boolean[]) => {
 
 	const prefix: number[] = [];
 	for (let i = 0; i < map.length; i++) {
-		const currentDimensionalIndexes = KarnaughMatrix.trueIndexToIndexes(i, nDimensions);
+		const currentDimensionalCoords = KarnaughMatrix.indexToCoords(i, nDimensions);
 
 		let sum = Number(map[i]);
 		for (let nShiftedDimension = 0; nShiftedDimension < nDimensions; nShiftedDimension++) {
-			const addendIndex = currentDimensionalIndexes.reduce((value, currentIndex, nDimension) => {
+			const addendIndex = currentDimensionalCoords.reduce((value, currentIndex, nDimension) => {
 				return value + (4**nDimension) * (nShiftedDimension === nDimension ? currentIndex - 1 : currentIndex);
 			}, 0);
 
@@ -112,31 +114,90 @@ export const getSimplestExpression = (truthTable: boolean[]) => {
 	map.forEach((value, i) => {
 		if (value === false) return;
 
-		const indexes = KarnaughMatrix.trueIndexToIndexes(i, nDimensions);
+		const coords = KarnaughMatrix.indexToCoords(i, nDimensions);
 
-		const singleDimensionDistances = new Array(nDimensions).fill(1);
-		for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
-			// Check for width 2
-			const testIndexes = indexes.map((index, i) => (i === nDimension) ? (index + 1) % 4 : index);
-
-			if (map[KarnaughMatrix.indexesToTrueIndex(...testIndexes)] === true) {
-				singleDimensionDistances[nDimension] = 2;
-			} else {
-				continue;
-			}
-
-			// Check for width 4
-			// if (indexes[nDimension] !== 0) continue; // Would have been found already
-
-			const testIndexes2 = indexes.map((index, i) => (i === nDimension) ? (index + 2) % 4 : index);
-			const testIndexes3 = indexes.map((index, i) => (i === nDimension) ? (index + 3) % 4 : index);
-
-			if (map[KarnaughMatrix.indexesToTrueIndex(...testIndexes2)] === true
-					&& map[KarnaughMatrix.indexesToTrueIndex(...testIndexes3)] === true) {
-				singleDimensionDistances[nDimension] = 4;
-			}
-		}
+		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions);
 
 		// Find groups based on the single-dimension distances
+		const dimensionHash = (dimensions: number[]) =>
+				dimensions.reduce((value, length, nDimension) => value + (BigInt(length) << (2n * BigInt(nDimension))), 0n) ;
+
+		const groups = new HashSet<number[]>(dimensionHash);
+		// const redundantGroups = new HashSet<number[]>(dimensionHash);
+
+		const iterateCoordPossibilities = (dimensions: number[], indexOfVariedDimension: number=0) => {
+			dimensions[indexOfVariedDimension] = 0;
+
+			let anyGroupFound = false;
+			let lastValidDistance = -1;
+
+			// Test ALL OF THEM!!! (unoptimized)
+			for (let distance = 0; distance <= singleDimensionDistances[indexOfVariedDimension]; distance++) {
+				dimensions[indexOfVariedDimension] = distance;
+
+				if (indexOfVariedDimension + 1 !== dimensions.length) {
+					iterateCoordPossibilities(dimensions, indexOfVariedDimension + 1);
+				} else {
+					const groupFound = testDimensions(prefix, coords, dimensions, nDimensions);
+
+					if (groupFound) {
+						anyGroupFound = true;
+						lastValidDistance = distance;
+					} else {
+						break;
+					}
+				}
+			}
+
+			if (anyGroupFound) {
+				groups.add(dimensions.map((dimension, i) => i === indexOfVariedDimension ? lastValidDistance : dimension));
+			}
+		};
+
+		iterateCoordPossibilities(new Array(nDimensions).fill(0));
+
+		console.log(coords, [...groups.values()]);
 	});
+};
+
+const getSingleDimensionDistances = (map: boolean[], coords: number[], nDimensions: number) => {
+	const singleDimensionDistances = new Array(nDimensions).fill(0); // log2(distance)
+	for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
+		// Check for width 2
+		const testCoords = coords.map((index, j) => (j === nDimension) ? (index + 1) % 4 : index);
+
+		if (map[KarnaughMatrix.coordsToIndex(...testCoords)] === true) {
+			singleDimensionDistances[nDimension] = 1;
+		} else {
+			continue;
+		}
+
+		// Check for width 4
+		// if (indexes[nDimension] !== 0) continue; // Would have been found already
+
+		const testCoords2 = coords.map((index, j) => (j === nDimension) ? (index + 2) % 4 : index);
+		const testCoords3 = coords.map((index, j) => (j === nDimension) ? (index + 3) % 4 : index);
+
+		if (map[KarnaughMatrix.coordsToIndex(...testCoords2)] === true
+				&& map[KarnaughMatrix.coordsToIndex(...testCoords3)] === true) {
+			singleDimensionDistances[nDimension] = 2;
+		}
+	}
+
+	return singleDimensionDistances;
+};
+
+const testDimensions = (prefix: number[], coords: number[], dimensions: number[], nDimensions: number): boolean => {
+	const farCoords = coords.map((index, j) => index + 2**dimensions[j]);
+
+	// Count the number of trues
+	const prefixResult = prefix[KarnaughMatrix.coordsToIndex(...farCoords)]
+			- farCoords.reduce((sum, farIndex, j) => {
+				const targetCoords = coords.map((index, nDimension) => nDimension === j ? index : farIndex);
+				const newIndex = KarnaughMatrix.coordsToIndex(...targetCoords);
+				return sum + prefix[newIndex];
+			}, 0)
+			+ (nDimensions - 1) * prefix[KarnaughMatrix.coordsToIndex(...coords.map(index => index - 1))];
+
+	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
 };

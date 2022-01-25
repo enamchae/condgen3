@@ -29,13 +29,15 @@
 	document.body.textContent = simplified.toString();
 })(); */
 
-import {buildKarnaughMap, buildKarnaughPrefix} from "./Karnaugh";
+import {buildKarnaughMap, buildKarnaughPrefix, getSimplestExpression} from "./Karnaugh";
 
 (() => {
 	const truthTable = [false, true, false, true];
 
-	const map = buildKarnaughMap(truthTable);
+/* 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
 
-	console.log(map, prefix);
+	// console.log(map, prefix); */
+
+	getSimplestExpression(truthTable);
 })();

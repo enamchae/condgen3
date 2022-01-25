@@ -19,5 +19,8 @@
   "dependencies": {
     "browser-sync": "^2.27.7",
     "parcel-bundler": "^1.12.5"
-  }
+  },
+  "browserslist": [
+    "since 2018"
+  ]
 }
