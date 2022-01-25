@@ -90,9 +90,11 @@ export const buildKarnaughPrefix = (map: boolean[]) => {
 		const currentDimensionalCoords = KarnaughMatrix.indexToCoords(i, nDimensions);
 
 		let sum = Number(map[i]);
-		for (let nShiftedDimension = 0; nShiftedDimension < nDimensions; nShiftedDimension++) {
-			const addendIndex = currentDimensionalCoords.reduce((value, currentIndex, nDimension) => {
-				return value + (4**nDimension) * (nShiftedDimension === nDimension ? currentIndex - 1 : currentIndex);
+		// Sum together the adjacent element of the map in each direction
+		for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
+			// Get the index of the relevant element
+			const addendIndex = currentDimensionalCoords.reduce((value, currentIndex, i) => {
+				return value + (4**i) * (nDimension === i ? currentIndex - 1 : currentIndex);
 			}, 0);
 
 			sum += Number(prefix[addendIndex] ?? 0);
@@ -188,12 +190,12 @@ const getSingleDimensionDistances = (map: boolean[], coords: number[], nDimensio
 };
 
 const testDimensions = (prefix: number[], coords: number[], dimensions: number[], nDimensions: number): boolean => {
-	const farCoords = coords.map((index, j) => index + 2**dimensions[j]);
+	const farCoords = coords.map((index, j) => index + 2**dimensions[j] - 1);
 
 	// Count the number of trues
 	const prefixResult = prefix[KarnaughMatrix.coordsToIndex(...farCoords)]
 			- farCoords.reduce((sum, farIndex, j) => {
-				const targetCoords = coords.map((index, nDimension) => nDimension === j ? index : farIndex);
+				const targetCoords = coords.map((index, nDimension) => nDimension === j ? index - 1 : farIndex);
 				const newIndex = KarnaughMatrix.coordsToIndex(...targetCoords);
 				return sum + prefix[newIndex];
 			}, 0)
