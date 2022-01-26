@@ -48,6 +48,10 @@ class KarnaughMatrix<T> {
 		return this.array[KarnaughMatrix.coordsToIndex(...indexes)];
 	}
 
+	getElse(alt: T, ...indexes: number[]) {
+		return this.get(...indexes) ?? alt;
+	}
+
 	getWrapping(...indexes: number[]) {
 		return this.array[KarnaughMatrix.coordsToIndexWrapping(...indexes)];
 	}
@@ -134,7 +138,7 @@ export const buildKarnaughPrefix = (map: KarnaughMatrix<boolean>) => {
 					coords[j] = combo[j] ? currentCoords[j] - 1 : currentCoords[j];
 				}
 
-				sum += sign * (prefix.get(...coords) ?? 0);
+				sum += sign * prefix.getElse(0, ...coords);
 			}
 		}
 
@@ -201,6 +205,35 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 		}
 	});
 
+	// Remove redundant groups (unoptimized)
+	for (const [offset, sizes] of mapGroups) {
+		for (const size of sizes) {
+			// Compare with every other group; determine if `cont` (container) contains this group
+			for (const [contOffset, contSizes] of mapGroups) {
+				for (const contSize of contSizes) {
+					// If the same group, ignore
+					const sameGroup = offset.every((coord, i) => coord === contOffset[i] && size[i] === contSize[i]);
+					if (sameGroup) continue;
+
+					// Check if the starting corner of the container group starts before this group in every direction
+					const offsetPredates = offset.every((coord, i) => coord >= contOffset[i]);
+					if (!offsetPredates) continue;
+
+					// Check if the container group extends past this group in every direction
+					// TODO handle wrapping
+					const contCaptures = offset.every((coord, i) => coord + 2**size[i] <= contOffset[i] + 2**contSize[i]);
+					if (!contCaptures) continue;
+
+					// Container group thus contains this group; no longer necessary
+					sizes.delete(size);
+					if (sizes.size === 0) {
+						mapGroups.delete(offset);
+					}
+				}
+			}
+		}
+	}
+
 	return mapGroups;
 };
 
@@ -211,6 +244,8 @@ const getSingleDimensionDistances = (map: KarnaughMatrix<boolean>, coords: numbe
 		const testCoords = [...coords];
 		testCoords[nDimension]++; // temp
 		// const testCoords = coords.map((index, j) => (j === nDimension) ? (index + 1) % 4 : index);
+
+		// TODO handle looping actually good
 
 		if (map.get(...testCoords) === true) {
 			singleDimensionDistances[nDimension] = 1;
@@ -244,18 +279,14 @@ const testDimensions = (prefix: KarnaughMatrix<number>, coords: number[], dimens
 				const targetCoords = [...farCoords];
 				targetCoords[j] = coords[j] - 1;
 
-				return sum + (prefix.get(...targetCoords) ?? 0);
+				return sum + prefix.getElse(0, ...targetCoords);
 			}, 0)
-			+ (nDimensions - 1) * (prefix.get(...coords.map(index => index - 1)) ?? 0);
+			+ (nDimensions - 1) * prefix.getElse(0, ...coords.map(index => index - 1));
 
 	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
 };
 
 export const generateExpression = (groups: Map<number[], Set<number[]>>) => {
-	/* // Associated variable for an axis of a group of size 2, with the given offset along an axis
-	// 0 is A, 1 is NOT(A), 2 is B, 3 is NOT(B), …
-	const constants = [3, 0, 1, 2]; */
-
 	const parts = [];
 
 	for (const [offset, sizes] of groups) {
@@ -284,7 +315,7 @@ const interpretGroup = (offset: number[], size: number[], grays: number[]): numb
 	const NOT_A = 1;
 	const B = 2;
 	const NOT_B = 3;
-	const variableOrderForSize2 = [NOT_B, A, B, NOT_A];
+	const variableOrderForSize2 = [NOT_B, A, B, NOT_A]; // Variable that stays constant in a group which has a size of 2 along a given axis, given the offset along the axis
 
 	for (let i = 0; i < size.length; i++) {
 		const varOffset = i * 4; // Number to be added to the `dependents` value to represent other variables (C, D, E, etc)
