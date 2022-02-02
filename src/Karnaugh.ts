@@ -14,51 +14,51 @@ class CubeMat<T> {
 		this.width = width;
 	}
 
-	static coordsToIndex(width: number, ...coords: number[]) {
+	coordsToIndex(coords: number[]) {
 		let index = 0;
 		for (let nDimension = 0; nDimension < coords.length; nDimension++) {
 			const coord = coords[nDimension];
-			if (coord < 0 || coord >= width) {
+			if (coord < 0 || coord >= this.width) {
 				return -1;
 			}
 
-			index += coord * width**nDimension;
+			index += coord * this.width**nDimension;
 		}
 		return index;
 	}
 
-	static coordsToIndexWrapping(width: number, ...coords: number[]) {
+	coordsToIndexWrapping(coords: number[]) {
 		let index = 0;
 		for (let nDimension = 0; nDimension < coords.length; nDimension++) {
-			const coord = mod(coords[nDimension], width);
+			const coord = mod(coords[nDimension], this.width);
 
-			index += coord * width**nDimension;
+			index += coord * this.width**nDimension;
 		}
 		return index;
 	}
 
-	static indexToCoords(index: number, nDimensions: number, width: number) {
+	indexToCoords(index: number, nDimensions: number=this.nDimensions()) {
 		const indexes: number[] = [];
 		for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
-			indexes.push(Math.floor(index / width**nDimension) % width);
+			indexes.push(Math.floor(index / this.width**nDimension) % this.width);
 		}
 		return indexes;
 	}
 	
-	get(...indexes: number[]) {
-		return this.array[CubeMat.coordsToIndex(this.width, ...indexes)];
+	get(indexes: number[]) {
+		return this.array[this.coordsToIndex(indexes)];
 	}
 
-	getElse(alt: T, ...indexes: number[]) {
-		return this.get(...indexes) ?? alt;
+	getElse(alt: T, indexes: number[]) {
+		return this.get(indexes) ?? alt;
 	}
 
-	getWrapping(...indexes: number[]) {
-		return this.array[CubeMat.coordsToIndexWrapping(this.width, ...indexes)];
+	getWrapping(indexes: number[]) {
+		return this.array[this.coordsToIndexWrapping(indexes)];
 	}
 
-	set(value: T, ...indexes: number[]) {
-		this.array[CubeMat.coordsToIndex(this.width, ...indexes)] = value;
+	set(value: T, indexes: number[]) {
+		this.array[this.coordsToIndex(indexes)] = value;
 		return this;
 	}
 
@@ -66,7 +66,7 @@ class CubeMat<T> {
 		const nDimensions = this.nDimensions();
 
 		this.array.forEach((value, i) => {
-			fn(value, CubeMat.indexToCoords(i, nDimensions, this.width));
+			fn(value, this.indexToCoords(i, nDimensions));
 		});
 	}
 
@@ -104,7 +104,7 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 	for (let i = 0; i < truthTable.length; i++) {
 		const associatedInputs = [];
 
-		for (const index of CubeMat.indexToCoords(i, nDimensions, map.width)) {
+		for (const index of map.indexToCoords(i, nDimensions)) {
 			associatedInputs.push(Boolean(grayOrder[index] & 0b1));
 			associatedInputs.push(Boolean(grayOrder[index] >>> 1 & 0b1));
 		}
@@ -122,9 +122,9 @@ export const buildKarnaughPrefix = (map: CubeMat<boolean>) => {
 
 	const prefix = new CubeMat<number>(5); // 1 larger in every direction to handle wrapping
 	for (let i = 0; i < prefixArrayLength; i++) {
-		const currentCoords = CubeMat.indexToCoords(i, nDimensions, prefix.width);
+		const currentCoords = prefix.indexToCoords(i, nDimensions);
 
-		let sum = Number(map.getWrapping(...currentCoords));
+		let sum = Number(map.getWrapping(currentCoords));
 
 		// Method for finding N-dimensional prefix sum element
 		//  • Take the current element in the Karnaugh map
@@ -138,12 +138,12 @@ export const buildKarnaughPrefix = (map: CubeMat<boolean>) => {
 
 			for (const combo of combineBoolean(nDimensions, nShiftedDimensions)) {
 				// Shift the current coords
-				const coords = [];
+				const coords: number[] = [];
 				for (let j = 0; j < currentCoords.length; j++) {
 					coords[j] = combo[j] ? currentCoords[j] - 1 : currentCoords[j];
 				}
 
-				sum += sign * prefix.getElse(0, ...coords);
+				sum += sign * prefix.getElse(0, coords);
 			}
 		}
 
@@ -165,17 +165,10 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	map.array.forEach((value, i) => {
 		if (value === false) return;
 
-		const coords = CubeMat.indexToCoords(i, nDimensions, map.width);
-
+		const coords = map.indexToCoords(i, nDimensions);
 		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions);
-
-		// Find groups based on the single-dimension distances
-		/*const dimensionHash = (dimensions: number[]) =>
-				dimensions.reduce((value, length, nDimension) => value + (BigInt(length) << (2n * BigInt(nDimension))), 0n); */
-
-		// const groups = new HashSet<number[]>(dimensionHash);
+		
 		const groups = new Set<number[]>();
-		// const redundantGroups = new HashSet<number[]>(dimensionHash);
 
 		const iterateCoordPossibilities = (dimensions: number[], indexOfVariedDimension: number=0) => {
 			dimensions[indexOfVariedDimension] = 0;
@@ -225,7 +218,7 @@ const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nD
 		const testCoords = [...coords];
 		testCoords[nDimension] = (testCoords[nDimension] + 1) % 4;
 
-		if (map.get(...testCoords) === true) {
+		if (map.get(testCoords) === true) {
 			singleDimensionDistances[nDimension] = 1;
 		} else {
 			continue;
@@ -239,8 +232,8 @@ const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nD
 		const testCoords3 = [...coords];
 		testCoords3[nDimension] = (testCoords3[nDimension] + 3) % 4;
 
-		if (map.get(...testCoords2) === true
-				&& map.get(...testCoords3) === true) {
+		if (map.get(testCoords2) === true
+				&& map.get(testCoords3) === true) {
 			singleDimensionDistances[nDimension] = 2;
 		}
 	}
@@ -251,14 +244,14 @@ const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nD
 const samplePrefix = (prefix: CubeMat<number>, coords: number[], farCoords: number[]): number => {
 	const nDimensions = coords.length;
 
-	return prefix.get(...farCoords)
+	return prefix.get(farCoords)
 			- farCoords.reduce((sum, farIndex, j) => {
 				const targetCoords = [...farCoords];
 				targetCoords[j] = coords[j] - 1;
 
-				return sum + prefix.getElse(0, ...targetCoords);
+				return sum + prefix.getElse(0, targetCoords);
 			}, 0)
-			+ (nDimensions - 1) * prefix.getElse(0, ...coords.map(coord => coord - 1));
+			+ (nDimensions - 1) * prefix.getElse(0, coords.map(coord => coord - 1));
 };
 
 const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: number[]): boolean => {
@@ -279,6 +272,7 @@ const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
 	};
 
 	// (unoptimized)
+	offsetLoop:
 	for (const [offset, sizes] of mapGroups) {
 		groupLoop:
 		for (const size of sizes) {
@@ -309,8 +303,9 @@ const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
 					sizes.delete(size);
 					if (sizes.size === 0) {
 						mapGroups.delete(offset);
-						continue groupLoop;
+						continue offsetLoop;
 					}
+					continue groupLoop;
 				}
 			}
 		}
