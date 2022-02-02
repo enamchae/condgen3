@@ -191,7 +191,6 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 					iterateCoordPossibilities(dimensions, indexOfVariedDimension + 1);
 				} else {
 					const groupFound = testDimensions(prefix, coords, dimensions);
-					console.log(coords, dimensions, groupFound);
 					if (!groupFound) break;
 
 					anyGroupFound = true;
@@ -271,6 +270,14 @@ const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: n
 };
 
 const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
+
+	const contains = (containerOffset: number[], containerSize: number[], offset: number[], size: number[]) => {
+		// Is the offset of the container group less than the offset of this group in every direction?
+		return offset.every((coord, i) => coord >= containerOffset[i])
+		// Does the container group extend past this group in every direction?
+				&& offset.every((coord, i) => coord + 2**size[i] <= containerOffset[i] + 2**containerSize[i]);
+	};
+
 	// (unoptimized)
 	for (const [offset, sizes] of mapGroups) {
 		groupLoop:
@@ -282,14 +289,21 @@ const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
 					const sameGroup = offset.every((coord, i) => coord === contOffset[i] && size[i] === contSize[i]);
 					if (sameGroup) continue;
 
-					// Check if the starting corner of the container group starts before this group in every direction
-					const offsetPredates = offset.every((coord, i) => coord >= contOffset[i]);
-					if (!offsetPredates) continue;
+					if (!contains(contOffset, contSize, offset, size)) {
+						// Determine if the container has an offset of 3 and size of 1 in any direction (it wraps around)
+						let containerWraps = false;
+						const newContOffset = [...contOffset];
 
-					// Check if the container group extends past this group in every direction
-					// TODO handle wrapping
-					const contCaptures = offset.every((coord, i) => coord + 2**size[i] <= contOffset[i] + 2**contSize[i]);
-					if (!contCaptures) continue;
+						for (let i = 0; i < offset.length; i++) {
+							if (contOffset[i] !== 3 || contSize[i] !== 1) continue;
+
+							containerWraps = true;
+							newContOffset[i] -= 4; // Shift the container group back
+						}
+						
+						// Try again, but with the shifted coordinates
+						if (!containerWraps || !contains(newContOffset, contSize, offset, size)) continue;
+					}
 
 					// Container group thus contains this group; no longer necessary
 					sizes.delete(size);
