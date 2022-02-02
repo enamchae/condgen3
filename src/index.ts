@@ -32,7 +32,8 @@
 import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpression} from "./Karnaugh";
 
 (() => {
-	const truthTable = [false, false, false, false, false, true, false, true, false, false, false, false, false, true, false, true];
+	// const truthTable = [false, false, false, false, false, true, false, true, false, false, false, false, false, true, false, true];
+	const truthTable = [false, false, false, false, true, false, true, false, false, false, false, false, true, false, true, false];
 
 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
