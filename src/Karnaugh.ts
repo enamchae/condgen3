@@ -320,14 +320,14 @@ const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
 	}
 };
 
-export const generateExpression = (groups: Map<number[], Set<number[]>>) => {
+export const generateExpression = (groups: Map<number[], Set<number[]>>, nInputBits: number) => {
 	const parts: number[][] = [];
 
 	for (const [offset, sizes] of groups) {
 		const grays = offset.map(coord => grayOrder[coord]);
 
 		for (const size of sizes) {
-			const dependents = interpretGroup(offset, size, grays);
+			const dependents = interpretGroup(offset, size, grays, nInputBits);
 			parts.push(dependents);
 		}
 	}
@@ -346,28 +346,39 @@ export const generateExpression = (groups: Map<number[], Set<number[]>>) => {
 			}).join(" + ");
 }
 
-const interpretGroup = (offset: number[], size: number[], grays: number[]): number[] => {
+const interpretGroup = (offset: number[], size: number[], grays: number[], nInputBits: number): number[] => {
+	const isEven = nInputBits % 2 === 0; // Used to determine whether an axis only has one variable
+	const nDimensions = Math.ceil(nInputBits / 2);
+
 	const dependents = [];
 
 	const A = 0;
 	const NOT_A = 1;
 	const B = 2;
 	const NOT_B = 3;
-	const variableOrderForSize2 = [NOT_B, A, B, NOT_A]; // Variable that stays constant in a group which has a size of 2 along a given axis, given the offset along the axis
+	const variableOrderForSize2 = [NOT_B, A, B, NOT_A]; // Variable that stays constant in a group which has a size of 2 along a given axis, where the group's offset along the axis is `i`
 
 	for (let i = 0; i < size.length; i++) {
 		const varOffset = i * 4; // Number to be added to the `dependents` value to represent other variables (C, D, E, etc)
+
+		const axisHasTwoVariables = isEven || i < nDimensions - 1;
 
 		switch (size[i]) {
 			case 0: { // 1: 2 variables along this axis matter
 				const gray = grays[i];
 				dependents.push((gray & 0b1 ? A : NOT_A) + varOffset);
-				dependents.push((gray >> 1 & 0b1 ? B : NOT_B) + varOffset);
+				if (axisHasTwoVariables) {
+					dependents.push((gray >> 1 & 0b1 ? B : NOT_B) + varOffset);
+				}
 				break;
 			}
 
 			case 1: // 2: 1 variable along this axis matters
-				dependents.push(variableOrderForSize2[offset[i]] + varOffset);
+				if (axisHasTwoVariables) {
+					dependents.push(variableOrderForSize2[offset[i]] + varOffset);
+				} else {
+					continue;
+				}
 				break;
 
 			case 2: // 4: 0 variables along this axis matter

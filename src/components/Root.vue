@@ -34,7 +34,7 @@ export default defineComponent({
 	
 	methods: {
 		updateExpression() {
-			this.expression = generateExpression(findKarnaughGroups(this.truthTable));
+			this.expression = generateExpression(findKarnaughGroups(this.truthTable), this.nInputBits);
 		},
 
 		recreateTruthTable() {

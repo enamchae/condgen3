@@ -47,7 +47,7 @@ import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpre
 	console.log([...groups].map(([coords, set]) => [coords, [...set]]));
 
 	// document.body.textContent = generateExpression(groups);
-	console.log(generateExpression(groups));
+	console.log(generateExpression(groups, 4));
 
 	const app = createApp(Root).mount("main");
 })();
