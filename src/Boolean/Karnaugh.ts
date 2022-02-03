@@ -30,6 +30,7 @@ class CubeMat<T> {
 		return index;
 	}
 
+	// TODO should handle the case where the final axis is size 2 instead of 4
 	coordsToIndexWrapping(coords: number[]) {
 		let index = 0;
 		for (let nDimension = 0; nDimension < coords.length; nDimension++) {
@@ -120,8 +121,8 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 export const buildKarnaughPrefix = (map: CubeMat<boolean>) => {
 	const nDimensions = map.nDimensions();
 
-	// 5 elements in each dimension except the last, which can either be 5 or 3
-	const prefixArrayLength = 5**(nDimensions - 1) * (map.nInputBits() % 2 === 0 ? 5 : 3);
+	// 5 elements in each dimension except the last, which can either be 5 or 2 (don't need to extend if the size is 2 in a direction)
+	const prefixArrayLength = 5**(nDimensions - 1) * (map.nInputBits() % 2 === 0 ? 5 : 2);
 
 	const prefix = new CubeMat<number>(5); // 1 larger in every direction to handle wrapping
 	for (let i = 0; i < prefixArrayLength; i++) {
@@ -170,12 +171,12 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 
 		const coords = map.indexToCoords(i, nDimensions);
 		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions, nInputBits);
+
+		console.log(coords, singleDimensionDistances);
 		
 		const groups = new Set<number[]>();
 
 		const iterateCoordPossibilities = (dimensions: number[], indexOfVariedDimension: number=0) => {
-			dimensions[indexOfVariedDimension] = 0;
-
 			let anyGroupFound = false;
 			let lastValidDistance = -1;
 
@@ -210,7 +211,7 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 		}
 	});
 
-	removeRedundantGroups(mapGroups);	
+	removeRedundantGroups(mapGroups);
 
 	return mapGroups;
 };
@@ -255,14 +256,23 @@ const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nD
 const samplePrefix = (prefix: CubeMat<number>, coords: number[], farCoords: number[]): number => {
 	const nDimensions = coords.length;
 
-	return prefix.get(farCoords)
-			- farCoords.reduce((sum, farIndex, j) => {
-				const targetCoords = [...farCoords];
-				targetCoords[j] = coords[j] - 1;
+	let prefixResult = prefix.get(farCoords);
 
-				return sum + prefix.getElse(0, targetCoords);
-			}, 0)
-			+ (nDimensions - 1) * prefix.getElse(0, coords.map(coord => coord - 1));
+	// Same as when building up the prefix sum, but the sign is flipped
+	for (let nShiftedDimensions = 1; nShiftedDimensions <= nDimensions; nShiftedDimensions++) {
+		const sign = nShiftedDimensions % 2 !== 0 ? -1 : 1;
+
+		for (const combo of combineBoolean(nDimensions, nShiftedDimensions)) {
+			const targetCoords: number[] = [];
+			for (let j = 0; j < coords.length; j++) {
+				targetCoords[j] = combo[j] ? coords[j] - 1 : farCoords[j];
+			}
+
+			prefixResult += sign * prefix.getElse(0, targetCoords);
+		}
+	}
+
+	return prefixResult;
 };
 
 const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: number[]): boolean => {
