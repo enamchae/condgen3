@@ -4,5 +4,6 @@
 		"target": "esnext",
 		"downlevelIteration": true,
 		"useDefineForClassFields": true,
+		"moduleResolution": "node",
 	},
 }

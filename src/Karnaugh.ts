@@ -324,14 +324,18 @@ export const generateExpression = (groups: Map<number[], Set<number[]>>) => {
 		}
 	}
 
-	return parts.map(part => {
-		return part.map(factor => {
-			const letterId = Math.floor(factor / 2);
-			const inverted = factor % 2 !== 0;
+	return parts.length === 0
+			? "0" // Empty sum
+			: parts.map(part => {
+				return part.length === 0
+						? "1" // Empty product
+						: part.map(factor => {
+							const letterId = Math.floor(factor / 2);
+							const inverted = factor % 2 !== 0;
 
-			return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
-		}).join("");
-	}).join(" + ");
+							return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
+						}).join("");
+			}).join(" + ");
 }
 
 const interpretGroup = (offset: number[], size: number[], grays: number[]): number[] => {

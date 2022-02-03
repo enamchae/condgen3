@@ -28,6 +28,8 @@
 
 	document.body.textContent = simplified.toString();
 })(); */
+import {createApp} from "vue";
+import Root from "./components/Root.vue";
 
 import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpression} from "./Karnaugh";
 
@@ -44,5 +46,8 @@ import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpre
 
 	console.log([...groups].map(([coords, set]) => [coords, [...set]]));
 
-	document.body.textContent = generateExpression(groups);
+	// document.body.textContent = generateExpression(groups);
+	console.log(generateExpression(groups));
+
+	const app = createApp(Root).mount("main");
 })();
