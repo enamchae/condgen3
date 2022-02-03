@@ -1,4 +1,5 @@
 <template>
+	<input type="number" v-model="nInputBits" @change="recreateTruthTable" />
 	<form @change="updateExpression">
 		<input type="checkbox" v-for="(output, index) of truthTable" v-model="truthTable[index]" :key="index" />
 	</form>
@@ -24,15 +25,29 @@ export default defineComponent({
 
 		expression: "",
 	}),
+
+	computed: {
+		truthTableLength() {
+			return 2**this.nInputBits;
+		},
+	},
 	
 	methods: {
 		updateExpression() {
 			this.expression = generateExpression(findKarnaughGroups(this.truthTable));
 		},
+
+		recreateTruthTable() {
+			this.truthTable = new Array<boolean>(this.truthTableLength).fill(false);
+		},
 	},
 
 	created() {
-		this.truthTable = new Array<boolean>(2**this.nInputBits).fill(false);
+		this.recreateTruthTable();
+	},
+
+	mounted() {
+		this.updateExpression();
 	},
 });
 </script>

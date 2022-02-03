@@ -265,10 +265,18 @@ const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: n
 const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
 
 	const contains = (containerOffset: number[], containerSize: number[], offset: number[], size: number[]) => {
-		// Is the offset of the container group less than the offset of this group in every direction?
-		return offset.every((coord, i) => coord >= containerOffset[i])
-		// Does the container group extend past this group in every direction?
-				&& offset.every((coord, i) => coord + 2**size[i] <= containerOffset[i] + 2**containerSize[i]);
+		const result = 
+				// Is the offset of the container group less than the offset of this group in every direction?
+				offset.every((coord, i) => coord >= containerOffset[i])
+
+				// Does the container group extend past this group in every direction?
+				&& offset.every((coord, i) =>
+						coord + 2**size[i] <= containerOffset[i] + 2**containerSize[i]
+						|| containerSize[i] === 2 // Container size is 4 and wraps around infinitely
+						// (handles case where container is size 4, while smaller is size 2 and wraps)
+				);
+
+		return result;
 	};
 
 	// (unoptimized)
