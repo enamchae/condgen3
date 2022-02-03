@@ -32,7 +32,7 @@
 
 <script lang="ts">
 import {defineComponent} from "vue";
-import {findKarnaughGroups, generateExpression} from "../Karnaugh";
+import {findKarnaughGroups, generateExpression} from "../Boolean/Karnaugh";
 
 interface RootData {
 	nInputBits: number;
