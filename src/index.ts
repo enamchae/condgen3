@@ -34,8 +34,7 @@ import Root from "./components/Root.vue";
 import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpression} from "./Karnaugh";
 
 (() => {
-	// const truthTable = [false, false, false, false, false, true, false, true, false, false, false, false, false, true, false, true];
-	const truthTable = [false, false, false, false, true, false, true, false, false, false, false, false, true, false, true, false];
+	const truthTable = [true];
 
 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
@@ -47,7 +46,7 @@ import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpre
 	console.log([...groups].map(([coords, set]) => [coords, [...set]]));
 
 	// document.body.textContent = generateExpression(groups);
-	console.log(generateExpression(groups, 4));
+	console.log(generateExpression(groups, 1));
 
 	const app = createApp(Root).mount("main");
 })();

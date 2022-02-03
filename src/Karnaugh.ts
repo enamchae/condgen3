@@ -166,7 +166,7 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 		if (value === false) return;
 
 		const coords = map.indexToCoords(i, nDimensions);
-		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions);
+		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions, nInputBits);
 		
 		const groups = new Set<number[]>();
 
@@ -177,7 +177,8 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 			let lastValidDistance = -1;
 
 			// Test ALL OF THEM!!! (unoptimized)
-			for (let distance = 0; distance <= singleDimensionDistances[indexOfVariedDimension]; distance++) {
+			const maxDistance = singleDimensionDistances[indexOfVariedDimension];
+			for (let distance = 0; distance <= maxDistance; distance++) {
 				dimensions[indexOfVariedDimension] = distance;
 
 				if (indexOfVariedDimension + 1 !== dimensions.length) {
@@ -211,10 +212,17 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	return mapGroups;
 };
 
-const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nDimensions: number) => {
+const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nDimensions: number, nInputBits: number) => {
+	// code repeated from `interpretGroup`
+	const isEven = nInputBits % 2 === 0; // Used to determine whether an axis only has one variable
+
 	const singleDimensionDistances = new Array(nDimensions).fill(0); // log2(distance)
 	for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
+		const axisHasTwoVariables = isEven || nDimension < nDimensions - 1;
+
 		// Check for width 2
+		if (!axisHasTwoVariables && coords[nDimension] !== 0) continue; // Would have been found already
+		
 		const testCoords = [...coords];
 		testCoords[nDimension] = (testCoords[nDimension] + 1) % 4;
 
@@ -263,6 +271,8 @@ const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: n
 };
 
 const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
+
+	// TODO wrapping in an axis with 1 variable?
 
 	const contains = (containerOffset: number[], containerSize: number[], offset: number[], size: number[]) => {
 		const result = 
