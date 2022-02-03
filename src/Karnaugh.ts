@@ -1,7 +1,4 @@
-/**
- * @file Methods for building a Karnaugh map from a truth table and extracting the groups from them.
- */
-
+import {HashSet} from "./hashcollection";
 import {combineBoolean} from "./permute";
 
 const mod = (a: number, b: number) => (a % b + b) % b;

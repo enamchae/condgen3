@@ -1,7 +1,3 @@
-/**
- * @file Methods for generating permutations and combinations.
- */
-
 /* const permutations = (items: unknown[]): unknown[][] => {
 	switch (items.length) {
 		case 1:
