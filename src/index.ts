@@ -31,7 +31,7 @@
 import {createApp} from "vue";
 import Root from "./components/Root.vue";
 
-import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpression} from "./Karnaugh";
+import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpression} from "./Boolean/Karnaugh";
 
 (() => {
 	const truthTable = [true];

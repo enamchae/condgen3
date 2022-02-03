@@ -1,4 +1,7 @@
-import {HashSet} from "./hashcollection";
+/**
+ * @file Methods for generating Karnaugh maps from a truth tables and finding groups from them.
+ */
+
 import {combineBoolean} from "./permute";
 
 const mod = (a: number, b: number) => (a % b + b) % b;
