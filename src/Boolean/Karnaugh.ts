@@ -121,14 +121,14 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 export const buildKarnaughPrefix = (map: CubeMat<boolean>) => {
 	const nDimensions = map.nDimensions();
 
-	// 5 elements in each dimension except the last, which can either be 5 or 2 (don't need to extend if the size is 2 in a direction)
+	// 5 elements in each dimension except the last, which can either be 5 or 2 (no need to extend if the size is 2 in a direction)
 	const prefixArrayLength = 5**(nDimensions - 1) * (map.nInputBits() % 2 === 0 ? 5 : 2);
 
 	const prefix = new CubeMat<number>(5); // 1 larger in every direction to handle wrapping
 	for (let i = 0; i < prefixArrayLength; i++) {
-		const currentCoords = prefix.indexToCoords(i, nDimensions);
+		const coords = prefix.indexToCoords(i, nDimensions);
 
-		let sum = Number(map.getWrapping(currentCoords));
+		let sum = Number(map.getWrapping(coords));
 
 		// Method for finding N-dimensional prefix sum element
 		//  • Take the current element in the Karnaugh map
@@ -140,14 +140,15 @@ export const buildKarnaughPrefix = (map: CubeMat<boolean>) => {
 		for (let nShiftedDimensions = 1; nShiftedDimensions <= nDimensions; nShiftedDimensions++) {
 			const sign = nShiftedDimensions % 2 === 0 ? -1 : 1;
 
+			// Account for every coordinate set where exactly `nShiftedDimensions` dimensions have been shifted back 1 space
 			for (const combo of combineBoolean(nDimensions, nShiftedDimensions)) {
 				// Shift the current coords
-				const coords: number[] = [];
-				for (let j = 0; j < currentCoords.length; j++) {
-					coords[j] = combo[j] ? currentCoords[j] - 1 : currentCoords[j];
+				const targetCoords: number[] = [];
+				for (let j = 0; j < coords.length; j++) {
+					targetCoords[j] = combo[j] ? coords[j] - 1 : coords[j];
 				}
 
-				sum += sign * prefix.getElse(0, coords);
+				sum += sign * prefix.getElse(0, targetCoords);
 			}
 		}
 
@@ -236,6 +237,8 @@ const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nD
 			continue;
 		}
 
+		if (!axisHasTwoVariables) continue;
+
 		// Check for width 4
 		if (coords[nDimension] !== 0) continue; // Would have been found already
 
@@ -258,12 +261,22 @@ const samplePrefix = (prefix: CubeMat<number>, coords: number[], farCoords: numb
 
 	let prefixResult = prefix.get(farCoords);
 
-	// Same as when building up the prefix sum, but the sign is flipped
+	// Same as when building up the prefix sum, but the sign is flipped and the targetCoords are not necessarily
+	// adjacent
 	for (let nShiftedDimensions = 1; nShiftedDimensions <= nDimensions; nShiftedDimensions++) {
 		const sign = nShiftedDimensions % 2 !== 0 ? -1 : 1;
 
+		// Let coords = [1, 1] (4 in the following prefix) and farCoords = [2, 2] (9 in the prefix)
+		// Map:    Prefix:
+		// 1 1 1   1 2 3
+		// 1 1 1   2 4 6
+		// 1 1 1   3 6 9
+		// In 2D, the prefix result would be (9 − 3 − 3 + 1) = 4, which is the number of 1s in the map within the
+		// rectangle whose corners are [1, 1] and [2, 2] inclusive.
+
 		for (const combo of combineBoolean(nDimensions, nShiftedDimensions)) {
 			const targetCoords: number[] = [];
+			
 			for (let j = 0; j < coords.length; j++) {
 				targetCoords[j] = combo[j] ? coords[j] - 1 : farCoords[j];
 			}

@@ -48,6 +48,12 @@ export function* permute(items: unknown[]): Generator<unknown[], void, void> {
 	}
 }
 
+/**
+ * Generates all boolean arrays of a given size that contain exactly a desired number of `true`s.
+ * @param nTotal Size of each boolean array.
+ * @param nTrues Number of `true`s in each array.
+ * @yields Boolean array of size `nTotal` containing exactly `nTrues` `true`s (the rest are `false`).
+ */
 export function* combineBoolean(nTotal: number, nTrues: number): Generator<boolean[], void, void> {
 	if (nTrues > nTotal) throw new RangeError();
 
