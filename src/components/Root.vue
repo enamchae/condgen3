@@ -1,6 +1,9 @@
 <template>
 	<inputs->
-		<input type="number" v-model="nInputBits" @input="refreshTruthTable" />
+		<Entry v-model="nInputBits"
+				:validate="value => 0 <= value && value <= 16 && value % 1 === 0"
+				@input="refreshTruthTable" />
+		<!-- <input type="number" v-model="nInputBits" @input="refreshTruthTable" /> -->
 
 		<table @change="updateExpression" class="truth-table">
 			<thead>
@@ -27,12 +30,13 @@
 		</table>
 	</inputs->
 
-	<div>{{expression}}</div>
+	<output->{{expression}}</output->
 </template>
 
 <script lang="ts">
 import {defineComponent} from "vue";
 import {findKarnaughGroups, generateExpression} from "../Boolean/Karnaugh";
+import Entry from "./Entry.vue";
 
 interface RootData {
 	nInputBits: number;
@@ -82,6 +86,10 @@ export default defineComponent({
 		},
 	},
 
+	components: {
+		Entry,
+	},
+
 	created() {
 		this.recreateTruthTable();
 	},
@@ -99,7 +107,10 @@ export default defineComponent({
 
 body {
 	margin: 0;
-	font-family: Atkinson Hyperlegible, Overpass, sans-serif;
+
+	&, input {
+		font-family: Atkinson Hyperlegible, Overpass, sans-serif;
+	}
 }
 
 main {
@@ -112,6 +123,7 @@ main {
 
 	inputs- {
 		max-height: 100%;
+		margin: 2em 0;
 		display: block;
 		overflow-y: auto;
 
@@ -128,6 +140,8 @@ th {
 }
 
 .truth-table {
+	margin: 2em 0;
+
 	border-collapse: collapse;
 	text-align: center;
 
@@ -149,5 +163,10 @@ th {
 	:is(td, th) {
 		padding: 0 1em;
 	}
+}
+
+output- {
+	font-weight: 700;
+	font-size: 2em;
 }
 </style>

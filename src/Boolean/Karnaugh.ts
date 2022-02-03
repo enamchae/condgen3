@@ -172,8 +172,6 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 
 		const coords = map.indexToCoords(i, nDimensions);
 		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions, nInputBits);
-
-		console.log(coords, singleDimensionDistances);
 		
 		const groups = new Set<number[]>();
 
@@ -211,6 +209,11 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 			mapGroups.set(coords, groups);
 		}
 	});
+
+	// :)
+	if (nDimensions === 0 && map.array[0] === true) {
+		mapGroups.set([], new Set<number[]>([[]]));
+	}
 
 	removeRedundantGroups(mapGroups);
 
