@@ -1,8 +1,5 @@
 <template>
-	<inputs->
-		<Entry v-model="nInputBits"
-				:validate="value => 0 <= value && value <= 16 && value % 1 === 0"
-				@input="refreshTruthTable" />
+	<input-table>
 		<!-- <input type="number" v-model="nInputBits" @input="refreshTruthTable" /> -->
 
 		<table @change="updateExpression" class="truth-table">
@@ -28,9 +25,16 @@
 				</tr>
 			</tbody>
 		</table>
-	</inputs->
+	</input-table>
 
-	<output->{{expression}}</output->
+	<side-panel>
+		<output->{{expression}}</output->
+		<settings->
+			<Entry v-model="nInputBits"
+					:validate="value => 0 <= value && value <= 16 && value % 1 === 0"
+					@input="refreshTruthTable" />
+		</settings->
+	</side-panel>
 </template>
 
 <script lang="ts">
@@ -121,7 +125,7 @@ main {
 	align-items: center;
 	gap: 2em;
 
-	inputs- {
+	input-table {
 		max-height: 100%;
 		margin: 2em 0;
 		display: block;
@@ -165,8 +169,26 @@ th {
 	}
 }
 
+side-panel {
+	display: grid;
+
+	grid-template-rows: 1fr auto 1fr;
+
+	> output- {
+		grid-row: 2;
+		min-height: 4em;
+	}
+
+	> settings- {
+		grid-row: 3;
+	}
+}
+
 output- {
 	font-weight: 700;
 	font-size: 2em;
+		
+	display: flex;
+	align-items: center;
 }
 </style>
