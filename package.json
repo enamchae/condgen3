@@ -7,7 +7,8 @@
     "start": "concurrently \"npm run parcel\" \"npm run bsync\"",
     "parcel": "parcel watch src/index.html",
     "bsync": "browser-sync start -s \"dist\" -f \"dist\"",
-    "build": "parcel build src/index.html"
+    "build": "parcel build src/index.html",
+    "build.public": "parcel build src/index.html --public-url ./"
   },
   "author": "",
   "license": "MIT",
