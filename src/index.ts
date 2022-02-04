@@ -31,10 +31,10 @@
 import {createApp} from "vue";
 import Root from "./components/Root.vue";
 
-import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpression} from "./Boolean/Karnaugh";
+// import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpression} from "./Boolean/Karnaugh";
 
 (() => {
-	const truthTable = [true];
+	/* const truthTable = [true];
 
 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
@@ -46,7 +46,8 @@ import {buildKarnaughMap, buildKarnaughPrefix, findKarnaughGroups, generateExpre
 	console.log([...groups].map(([coords, set]) => [coords, [...set]]));
 
 	// document.body.textContent = generateExpression(groups);
-	console.log(generateExpression(groups, 1));
+	console.log(generateExpression(groups, 1)); */
 
-	const app = createApp(Root).mount("main");
+	const app = createApp(Root);
+	app.mount("main");
 })();

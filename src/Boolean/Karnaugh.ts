@@ -2,131 +2,33 @@
  * @file Methods for generating Karnaugh maps from a truth tables and finding groups from them.
  */
 
+import {grayOrder, CubeMat, Karnaugh, TruthTable} from "./boolean-util";
 import {combineBoolean} from "./permute";
 
-const mod = (a: number, b: number) => (a % b + b) % b;
-
-/**
- * Matrix with an arbitrary number of dimensions, at most `width` units long in each dimension
- */
-class CubeMat<T> {
-	array: T[] = [];
-	width: number;
-
-	constructor(width=4) {
-		this.width = width;
-	}
-
-	coordsToIndex(coords: number[]) {
-		let index = 0;
-		for (let nDimension = 0; nDimension < coords.length; nDimension++) {
-			const coord = coords[nDimension];
-			if (coord < 0 || coord >= this.width) {
-				return -1;
-			}
-
-			index += coord * this.width**nDimension;
-		}
-		return index;
-	}
-
-	// TODO should handle the case where the final axis is size 2 instead of 4
-	coordsToIndexWrapping(coords: number[]) {
-		let index = 0;
-		for (let nDimension = 0; nDimension < coords.length; nDimension++) {
-			const coord = mod(coords[nDimension], this.width);
-
-			index += coord * this.width**nDimension;
-		}
-		return index;
-	}
-
-	indexToCoords(index: number, nDimensions: number=this.nDimensions()) {
-		const indexes: number[] = [];
-		for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
-			indexes.push(Math.floor(index / this.width**nDimension) % this.width);
-		}
-		return indexes;
-	}
-	
-	get(indexes: number[]) {
-		return this.array[this.coordsToIndex(indexes)];
-	}
-
-	getElse(alt: T, indexes: number[]) {
-		return this.get(indexes) ?? alt;
-	}
-
-	getWrapping(indexes: number[]) {
-		return this.array[this.coordsToIndexWrapping(indexes)];
-	}
-
-	set(value: T, indexes: number[]) {
-		this.array[this.coordsToIndex(indexes)] = value;
-		return this;
-	}
-
-	forEach(fn: (value: T, coords: number[]) => void) {
-		const nDimensions = this.nDimensions();
-
-		this.array.forEach((value, i) => {
-			fn(value, this.indexToCoords(i, nDimensions));
-		});
-	}
-
-	nInputBits() {
-		return Math.log2(this.array.length);
-	}
-
-	nDimensions() {
-		return Math.ceil(this.nInputBits() / 2);
-	}
-}
-
-const grayOrder = [0b00, 0b01, 0b11, 0b10]; // smallest bit => first input
-
-const range = max => {
-	const array = [];
-	for (let i = 0; i < max; i++) {
-		array.push(i);
-	}
-	return array;
-};
-
 export const buildKarnaughMap = (truthTable: boolean[]) => {
-	const nInputBits = Math.log2(truthTable.length);
-	const nDimensions = Math.ceil(nInputBits / 2);
+	const truth = new TruthTable(truthTable);
 
-	if (nInputBits % 1 !== 0) throw new RangeError("Truth table size is not a power of 2");
-
-	const getValueFromTruthTable = (...inputs: boolean[]) => {
-		const index = inputs.reduce((value, input, i) => value + (Number(input) << i), 0);
-		return truthTable[index];
-	};
-
-	const map = new CubeMat<boolean>();
+	const map = new Karnaugh(truthTable.length);
 	for (let i = 0; i < truthTable.length; i++) {
-		const associatedInputs = [];
+		const inputs = [];
 
-		for (const index of map.indexToCoords(i, nDimensions)) {
-			associatedInputs.push(Boolean(grayOrder[index] & 0b1));
-			associatedInputs.push(Boolean(grayOrder[index] >>> 1 & 0b1));
+		for (const coord of map.indexToCoords(i)) {
+			inputs.push(Boolean(grayOrder[coord] & 0b1));
+			inputs.push(Boolean(grayOrder[coord] >>> 1 & 0b1));
 		}
 
-		map.array[i] = getValueFromTruthTable(...associatedInputs);
+		map.array[i] = truth.get(inputs);
 	}
 	return map;
 };
 
-export const buildKarnaughPrefix = (map: CubeMat<boolean>) => {
-	const nDimensions = map.nDimensions();
-
+export const buildKarnaughPrefix = (map: Karnaugh) => {
 	// 5 elements in each dimension except the last, which can either be 5 or 2 (no need to extend if the size is 2 in a direction)
-	const prefixArrayLength = 5**(nDimensions - 1) * (map.nInputBits() % 2 === 0 ? 5 : 2);
+	const prefixArrayLength = 5**(map.nDimensions - 1) * (map.nInputBits % 2 === 0 ? 5 : 2);
 
-	const prefix = new CubeMat<number>(5); // 1 larger in every direction to handle wrapping
+	const prefix = new CubeMat<number>(5, prefixArrayLength); // 1 larger in every direction to handle wrapping
 	for (let i = 0; i < prefixArrayLength; i++) {
-		const coords = prefix.indexToCoords(i, nDimensions);
+		const coords = prefix.indexToCoords(i);
 
 		let sum = Number(map.getWrapping(coords));
 
@@ -137,11 +39,11 @@ export const buildKarnaughPrefix = (map: CubeMat<boolean>) => {
 		//  • ADD all the elements that are [1 position behind in 3 directions] (ie, diagonals in 3D)
 		//  • SUBTRACT all the elements that are diagonals in 4D
 		//    ⋮
-		for (let nShiftedDimensions = 1; nShiftedDimensions <= nDimensions; nShiftedDimensions++) {
+		for (let nShiftedDimensions = 1; nShiftedDimensions <= map.nDimensions; nShiftedDimensions++) {
 			const sign = nShiftedDimensions % 2 === 0 ? -1 : 1;
 
 			// Account for every coordinate set where exactly `nShiftedDimensions` dimensions have been shifted back 1 space
-			for (const combo of combineBoolean(nDimensions, nShiftedDimensions)) {
+			for (const combo of combineBoolean(map.nDimensions, nShiftedDimensions)) {
 				// Shift the current coords
 				const targetCoords: number[] = [];
 				for (let j = 0; j < coords.length; j++) {
@@ -162,16 +64,13 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
 
-	const nInputBits = Math.round(Math.log2(truthTable.length));
-	const nDimensions = Math.ceil(nInputBits / 2);
-
 	const mapGroups = new Map<number[], Set<number[]>>();
 
 	map.array.forEach((value, i) => {
 		if (value === false) return;
 
-		const coords = map.indexToCoords(i, nDimensions);
-		const singleDimensionDistances = getSingleDimensionDistances(map, coords, nDimensions, nInputBits);
+		const coords = map.indexToCoords(i);
+		const singleDimensionDistances = getSingleDimensionDistances(map, coords);
 		
 		const groups = new Set<number[]>();
 
@@ -203,7 +102,7 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 			}
 		};
 
-		iterateCoordPossibilities(new Array(nDimensions).fill(0));
+		iterateCoordPossibilities(Array(map.nDimensions).fill(0));
 
 		if (groups.size > 0) {
 			mapGroups.set(coords, groups);
@@ -211,7 +110,7 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	});
 
 	// :)
-	if (nDimensions === 0 && map.array[0] === true) {
+	if (map.nDimensions === 0 && map.array[0] === true) {
 		mapGroups.set([], new Set<number[]>([[]]));
 	}
 
@@ -220,13 +119,10 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	return mapGroups;
 };
 
-const getSingleDimensionDistances = (map: CubeMat<boolean>, coords: number[], nDimensions: number, nInputBits: number) => {
-	// code repeated from `interpretGroup`
-	const isEven = nInputBits % 2 === 0; // Used to determine whether an axis only has one variable
-
-	const singleDimensionDistances = new Array(nDimensions).fill(0); // log2(distance)
-	for (let nDimension = 0; nDimension < nDimensions; nDimension++) {
-		const axisHasTwoVariables = isEven || nDimension < nDimensions - 1;
+const getSingleDimensionDistances = (map: Karnaugh, coords: number[]) => {
+	const singleDimensionDistances = Array(map.nDimensions).fill(0); // log2(distance)
+	for (let nDimension = 0; nDimension < map.nDimensions; nDimension++) {
+		const axisHasTwoVariables = map.isEven || nDimension < map.nDimensions - 1; // code repeated from `interpretGroup`
 
 		// Check for width 2
 		if (!axisHasTwoVariables && coords[nDimension] !== 0) continue; // Would have been found already
@@ -371,18 +267,20 @@ export const generateExpression = (groups: Map<number[], Set<number[]>>, nInputB
 		}
 	}
 
-	return parts.length === 0
-			? "0" // Empty sum
-			: parts.map(part => {
-				return part.length === 0
-						? "1" // Empty product
-						: part.map(factor => {
-							const letterId = Math.floor(factor / 2);
-							const inverted = factor % 2 !== 0;
+	if (parts.length === 0) {// Empty sum
+		return "0"
+	}
+	return parts.map(part => {
+		if (part.length === 0) { // Empty product
+			return "1";
+		}
+		return part.map(factor => {
+			const letterId = Math.floor(factor / 2);
+			const inverted = factor % 2 !== 0;
 
-							return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
-						}).join("");
-			}).join(" + ");
+			return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
+		}).join("");
+	}).join(" + ");
 }
 
 const interpretGroup = (offset: number[], size: number[], grays: number[], nInputBits: number): number[] => {
