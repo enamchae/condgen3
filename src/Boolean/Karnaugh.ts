@@ -22,6 +22,55 @@ class Group {
 		}
 		this.volume = volume;
 	}
+
+	eq(target: Group) {
+		return this.offset.every((coord, i) => coord === target.offset[i] && this.size[i] === target.size[i]);
+	}
+
+	/**
+	 * Determines whether this group contains another group, without considering the wrapping case.
+	 * @param target 
+	 * @returns 
+	 */
+	partialContains(target: Group) {
+		// TODO wrapping in an axis with 1 variable?
+
+		const result = 
+				// Is the offset of the container group less than the offset of this group in every direction?
+				target.offset.every((coord, i) => coord >= this.offset[i])
+
+				// Does the container group extend past this group in every direction?
+				&& target.offset.every((coord, i) =>
+						coord + 2**target.size[i] <= this.offset[i] + 2**this.size[i]
+						|| this.size[i] === 2 // Container size is 4 and wraps around infinitely
+						// (handles case where container is size 4, while smaller is size 2 and wraps)
+				);
+
+		return result;
+	}
+
+	contains(target: Group) {
+		if (this.partialContains(target)) {
+			return true;
+		}
+		
+		// Determine if the container has an offset of 3 and size of 1 in any direction (it wraps around)
+		let containerWraps = false;
+		const newOffset = [...this.offset];
+
+		for (let i = 0; i < target.offset.length; i++) {
+			if (this.offset[i] !== 3 || this.size[i] !== 1) continue;
+
+			containerWraps = true;
+			newOffset[i] -= 4; // Shift the container group back
+		}
+		
+		// Try again, but with the shifted coordinates
+		if (containerWraps && new Group(newOffset, this.size).contains(target)) {
+			return true;
+		}
+		return false;
+	}
 }
 
 /* export */ const buildKarnaughMap = (truthTable: boolean[]) => {
@@ -84,15 +133,13 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
 
-	const mapGroups = new MapSet<number[], number[]>();
+	const groups = new Set<Group>();
 
 	map.array.forEach((value, i) => {
 		if (value === false) return;
 
 		const coords = map.indexToCoords(i);
 		const singleDimensionDistances = getSingleDimensionDistances(map, coords);
-		
-		const groups = new Set<number[]>();
 
 		const iterateCoordPossibilities = (dimensions: number[], indexOfVariedDimension: number=0) => {
 			let anyGroupFound = false;
@@ -118,25 +165,21 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 				const lastValidDimensions = [...dimensions];
 				lastValidDimensions[indexOfVariedDimension] = lastValidDistance;
 
-				groups.add(lastValidDimensions);
+				groups.add(new Group(coords, lastValidDimensions));
 			}
 		};
 
 		iterateCoordPossibilities(Array(map.nDimensions).fill(0));
-
-		if (groups.size > 0) {
-			mapGroups.setSet(coords, groups);
-		}
 	});
 
 	// :)
 	if (map.nDimensions === 0 && map.array[0] === true) {
-		mapGroups.add([], []);
+		groups.add(new Group([], []));
 	}
 
-	removeRedundantGroups(mapGroups, map);
+	removeRedundantGroups(groups, map);
 
-	return mapGroups;
+	return groups;
 };
 
 const getSingleDimensionDistances = (map: Karnaugh, coords: number[]) => {
@@ -215,66 +258,17 @@ const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: n
 	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
 };
 
-const removeRedundantGroups = (mapGroups: MapSet<number[], number[]>, map: Karnaugh) => {
-
-	// TODO wrapping in an axis with 1 variable?
-
-	const contains = (containerOffset: number[], containerSize: number[], offset: number[], size: number[]) => {
-		const result = 
-				// Is the offset of the container group less than the offset of this group in every direction?
-				offset.every((coord, i) => coord >= containerOffset[i])
-
-				// Does the container group extend past this group in every direction?
-				&& offset.every((coord, i) =>
-						coord + 2**size[i] <= containerOffset[i] + 2**containerSize[i]
-						|| containerSize[i] === 2 // Container size is 4 and wraps around infinitely
-						// (handles case where container is size 4, while smaller is size 2 and wraps)
-				);
-
-		return result;
-	};
-
+const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	// Remove all groups that are contained by 1 other group
 	// (unoptimized)
-	offsetLoop:
-	for (const [offset, sizes] of mapGroups.sets()) {
-		groupLoop:
-		for (const size of sizes) {
-
-			// Compare with every other group; determine if `cont` (container) contains this group
-			for (const [contOffset, contSize] of mapGroups) {
-				// If the same group, ignore
-				const sameGroup = offset.every((coord, i) => coord === contOffset[i] && size[i] === contSize[i]);
-				if (sameGroup) continue;
-
-				if (!contains(contOffset, contSize, offset, size)) {
-					// Determine if the container has an offset of 3 and size of 1 in any direction (it wraps around)
-					let containerWraps = false;
-					const newContOffset = [...contOffset];
-
-					for (let i = 0; i < offset.length; i++) {
-						if (contOffset[i] !== 3 || contSize[i] !== 1) continue;
-
-						containerWraps = true;
-						newContOffset[i] -= 4; // Shift the container group back
-					}
-					
-					// Try again, but with the shifted coordinates
-					if (!containerWraps || !contains(newContOffset, contSize, offset, size)) continue;
-				}
-
-				// Container group thus contains this group; no longer necessary
-				sizes.delete(size);
-				if (sizes.size === 0) {
-					mapGroups.deleteSet(offset);
-					continue offsetLoop;
-				}
-				continue groupLoop;
-			}
+	for (const group of groups) {
+		for (const container of groups) {
+			if (group.eq(container) || !container.contains(group)) continue;
+			groups.delete(group);
 		}
 	}
 
-	if (mapGroups.size <= 2) return;
+	if (groups.size <= 2) return;
 
 	// Remove all groups that are contained by the union of multiple groups
 	// Theory: reconstruct the K-Map, starting with the biggest group. If a group's region is already filled, discard the group
@@ -287,16 +281,14 @@ const removeRedundantGroups = (mapGroups: MapSet<number[], number[]>, map: Karna
 	const newMap = new Karnaugh(map.array.length); */
 };
 
-export const generateExpression = (groups: MapSet<number[], number[]>, nInputBits: number) => {
+export const generateExpression = (groups: Set<Group>, nInputBits: number) => {
 	const parts: number[][] = [];
 
-	for (const [offset, sizes] of groups.sets()) {
-		const grays = offset.map(coord => grayOrder[coord]);
+	for (const group of groups) {
+		const grays = group.offset.map(coord => grayOrder[coord]);
 
-		for (const size of sizes) {
-			const dependents = interpretGroup(offset, size, grays, nInputBits);
-			parts.push(dependents);
-		}
+		const dependents = interpretGroup(group, grays, nInputBits);
+		parts.push(dependents);
 	}
 
 	if (parts.length === 0) {// Empty sum
@@ -315,7 +307,7 @@ export const generateExpression = (groups: MapSet<number[], number[]>, nInputBit
 	}).join(" + ");
 }
 
-const interpretGroup = (offset: number[], size: number[], grays: number[], nInputBits: number): number[] => {
+const interpretGroup = (group: Group, grays: number[], nInputBits: number): number[] => {
 	const isEven = nInputBits % 2 === 0; // Used to determine whether an axis only has one variable
 	const nDimensions = Math.ceil(nInputBits / 2);
 
@@ -327,12 +319,12 @@ const interpretGroup = (offset: number[], size: number[], grays: number[], nInpu
 	const NOT_B = 3;
 	const variableOrderForSize2 = [NOT_B, A, B, NOT_A]; // Variable that stays constant in a group which has a size of 2 along a given axis, where the group's offset along the axis is `i`
 
-	for (let i = 0; i < size.length; i++) {
+	for (let i = 0; i < group.size.length; i++) {
 		const varOffset = i * 4; // Number to be added to the `dependents` value to represent other variables (C, D, E, etc)
 
 		const axisHasTwoVariables = isEven || i < nDimensions - 1;
 
-		switch (size[i]) {
+		switch (group.size[i]) {
 			case 0: { // 1: 2 variables along this axis matter
 				const gray = grays[i];
 				dependents.push((gray & 0b1 ? A : NOT_A) + varOffset);
@@ -344,7 +336,7 @@ const interpretGroup = (offset: number[], size: number[], grays: number[], nInpu
 
 			case 1: // 2: 1 variable along this axis matters
 				if (axisHasTwoVariables) {
-					dependents.push(variableOrderForSize2[offset[i]] + varOffset);
+					dependents.push(variableOrderForSize2[group.offset[i]] + varOffset);
 				} else {
 					continue;
 				}
