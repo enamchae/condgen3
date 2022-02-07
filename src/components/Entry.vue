@@ -61,3 +61,9 @@ export default defineComponent({
 	},
 });
 </script>
+
+<style lang="scss" scoped>
+.invalid {
+	color: #f00;
+}
+</style>

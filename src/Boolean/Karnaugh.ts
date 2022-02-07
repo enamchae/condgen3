@@ -2,11 +2,12 @@
  * @file Methods for generating Karnaugh maps from a truth tables and finding groups from them.
  */
 
-import {grayOrder, CubeMat, Karnaugh, TruthTable} from "./boolean-util";
+import {grayOrder, CubeMat, Karnaugh} from "./boolean-util";
 import {combineBoolean} from "./permute";
 
-export const buildKarnaughMap = (truthTable: boolean[]) => {
-	const truth = new TruthTable(truthTable);
+/* export */ const buildKarnaughMap = (truthTable: boolean[]) => {
+	const truth = new CubeMat<boolean>(2, truthTable.length);
+	truth.array.push(...truthTable);
 
 	const map = new Karnaugh(truthTable.length);
 	for (let i = 0; i < truthTable.length; i++) {
@@ -22,9 +23,9 @@ export const buildKarnaughMap = (truthTable: boolean[]) => {
 	return map;
 };
 
-export const buildKarnaughPrefix = (map: Karnaugh) => {
+/* export */ const buildKarnaughPrefix = (map: Karnaugh) => {
 	// 5 elements in each dimension except the last, which can either be 5 or 2 (no need to extend if the size is 2 in a direction)
-	const prefixArrayLength = 5**(map.nDimensions - 1) * (map.nInputBits % 2 === 0 ? 5 : 2);
+	const prefixArrayLength = 5**(map.nDimensions - 1) * (map.isEven ? 5 : 2);
 
 	const prefix = new CubeMat<number>(5, prefixArrayLength); // 1 larger in every direction to handle wrapping
 	for (let i = 0; i < prefixArrayLength; i++) {

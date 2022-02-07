@@ -93,12 +93,14 @@ export class Karnaugh extends CubeMat<boolean> {
 	}
 }
 
-export class TruthTable extends CubeMat<boolean> {
+/* export class TruthTable extends CubeMat<boolean> {
 	readonly nInputBits: number;
 
 	constructor(inputs: boolean[]) {
 		super(2, inputs.length);
 		this.array.push(...inputs);
+
+		this.nInputBits = Math.log2(inputs.length);
 	}
 
 	// functionally equivalent, partially copied over
@@ -114,4 +116,4 @@ export class TruthTable extends CubeMat<boolean> {
 		}
 		return index;
 	}
-}
+} */

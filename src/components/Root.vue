@@ -30,9 +30,14 @@
 	<side-panel>
 		<output->{{expression}}</output->
 		<settings->
-			<Entry v-model="nInputBits"
-					:validate="value => 0 <= value && value <= 16 && value % 1 === 0"
-					@input="refreshTruthTable" />
+			<div>
+				<Entry v-model="nInputBits"
+						:validate="value => 0 <= value && value <= N_MAX_INPUTS && value % 1 === 0"
+						@input="refreshTruthTable" />
+				<label>Input variables</label>
+			</div>
+
+			<button @click="clearTruthTable">Clear</button>
 		</settings->
 	</side-panel>
 </template>
@@ -46,6 +51,8 @@ interface RootData {
 	nInputBits: number;
 	truthTable: boolean[];
 	expression: string;
+
+	readonly N_MAX_INPUTS: number;
 }
 
 export default defineComponent({
@@ -56,6 +63,8 @@ export default defineComponent({
 		truthTable: [],
 
 		expression: "",
+
+		N_MAX_INPUTS: 8,
 	}),
 
 	computed: {
@@ -74,12 +83,24 @@ export default defineComponent({
 			this.expression = generateExpression(groups, this.nInputBits);
 		},
 
-		recreateTruthTable() {
-			this.truthTable = new Array<boolean>(this.truthTableLength).fill(false);
+		repeatTruthTable() {
+			const truthTable: boolean[] = [];
+			for (let i = 0; i < this.truthTableLength; i++) {
+				truthTable[i] = this.truthTable[i % this.truthTable.length];
+			}
+
+			this.truthTable = truthTable;
+		},
+
+		clearTruthTable() {
+			for (let i = 0; i < this.truthTable.length; i++) {
+				this.truthTable[i] = false;
+			}
+			this.updateExpression();
 		},
 
 		refreshTruthTable() {
-			this.recreateTruthTable();
+			this.repeatTruthTable();
 			this.updateExpression();
 		},
 
@@ -95,7 +116,7 @@ export default defineComponent({
 	},
 
 	created() {
-		this.recreateTruthTable();
+		this.truthTable = Array(this.truthTableLength).fill(false);
 	},
 
 	mounted() {
@@ -112,9 +133,12 @@ export default defineComponent({
 body {
 	margin: 0;
 
-	&, input {
-		font-family: Atkinson Hyperlegible, Overpass, sans-serif;
-	}
+	font-family: Atkinson Hyperlegible, Overpass, sans-serif;
+}
+
+input,
+button {
+	font-family: inherit;
 }
 
 main {
@@ -190,5 +214,27 @@ output- {
 		
 	display: flex;
 	align-items: center;
+}
+
+settings- {
+	display: flex;
+	flex-flow: column;
+	align-items: start;
+	gap: .5em;
+}
+
+settings- {
+	label {
+		margin-left: .5em;
+	}
+
+	input,
+	button {
+		font-size: 1em;
+	}
+
+	input {
+		width: 4em;
+	}
 }
 </style>
