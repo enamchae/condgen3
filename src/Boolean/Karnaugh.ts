@@ -4,6 +4,25 @@
 
 import {grayOrder, CubeMat, Karnaugh} from "./boolean-util";
 import {combineBoolean} from "./permute";
+import MapSet from "../util/mapset";
+
+class Group {
+	readonly volume: number;
+
+	constructor(
+		readonly offset: number[],
+		/**
+		 * log2(true length) in each direction.
+		 */
+		readonly size: number[],
+	) {
+		let volume = 0;
+		for (const length of size) {
+			volume += length;
+		}
+		this.volume = volume;
+	}
+}
 
 /* export */ const buildKarnaughMap = (truthTable: boolean[]) => {
 	const truth = new CubeMat<boolean>(2, truthTable.length);
@@ -65,7 +84,7 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 	const map = buildKarnaughMap(truthTable);
 	const prefix = buildKarnaughPrefix(map);
 
-	const mapGroups = new Map<number[], Set<number[]>>();
+	const mapGroups = new MapSet<number[], number[]>();
 
 	map.array.forEach((value, i) => {
 		if (value === false) return;
@@ -106,16 +125,16 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 		iterateCoordPossibilities(Array(map.nDimensions).fill(0));
 
 		if (groups.size > 0) {
-			mapGroups.set(coords, groups);
+			mapGroups.setSet(coords, groups);
 		}
 	});
 
 	// :)
 	if (map.nDimensions === 0 && map.array[0] === true) {
-		mapGroups.set([], new Set<number[]>([[]]));
+		mapGroups.add([], []);
 	}
 
-	removeRedundantGroups(mapGroups);
+	removeRedundantGroups(mapGroups, map);
 
 	return mapGroups;
 };
@@ -196,7 +215,7 @@ const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: n
 	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
 };
 
-const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
+const removeRedundantGroups = (mapGroups: MapSet<number[], number[]>, map: Karnaugh) => {
 
 	// TODO wrapping in an axis with 1 variable?
 
@@ -215,51 +234,63 @@ const removeRedundantGroups = (mapGroups: Map<number[], Set<number[]>>) => {
 		return result;
 	};
 
+	// Remove all groups that are contained by 1 other group
 	// (unoptimized)
 	offsetLoop:
-	for (const [offset, sizes] of mapGroups) {
+	for (const [offset, sizes] of mapGroups.sets()) {
 		groupLoop:
 		for (const size of sizes) {
+
 			// Compare with every other group; determine if `cont` (container) contains this group
-			for (const [contOffset, contSizes] of mapGroups) {
-				for (const contSize of contSizes) {
-					// If the same group, ignore
-					const sameGroup = offset.every((coord, i) => coord === contOffset[i] && size[i] === contSize[i]);
-					if (sameGroup) continue;
+			for (const [contOffset, contSize] of mapGroups) {
+				// If the same group, ignore
+				const sameGroup = offset.every((coord, i) => coord === contOffset[i] && size[i] === contSize[i]);
+				if (sameGroup) continue;
 
-					if (!contains(contOffset, contSize, offset, size)) {
-						// Determine if the container has an offset of 3 and size of 1 in any direction (it wraps around)
-						let containerWraps = false;
-						const newContOffset = [...contOffset];
+				if (!contains(contOffset, contSize, offset, size)) {
+					// Determine if the container has an offset of 3 and size of 1 in any direction (it wraps around)
+					let containerWraps = false;
+					const newContOffset = [...contOffset];
 
-						for (let i = 0; i < offset.length; i++) {
-							if (contOffset[i] !== 3 || contSize[i] !== 1) continue;
+					for (let i = 0; i < offset.length; i++) {
+						if (contOffset[i] !== 3 || contSize[i] !== 1) continue;
 
-							containerWraps = true;
-							newContOffset[i] -= 4; // Shift the container group back
-						}
-						
-						// Try again, but with the shifted coordinates
-						if (!containerWraps || !contains(newContOffset, contSize, offset, size)) continue;
+						containerWraps = true;
+						newContOffset[i] -= 4; // Shift the container group back
 					}
-
-					// Container group thus contains this group; no longer necessary
-					sizes.delete(size);
-					if (sizes.size === 0) {
-						mapGroups.delete(offset);
-						continue offsetLoop;
-					}
-					continue groupLoop;
+					
+					// Try again, but with the shifted coordinates
+					if (!containerWraps || !contains(newContOffset, contSize, offset, size)) continue;
 				}
+
+				// Container group thus contains this group; no longer necessary
+				sizes.delete(size);
+				if (sizes.size === 0) {
+					mapGroups.deleteSet(offset);
+					continue offsetLoop;
+				}
+				continue groupLoop;
 			}
 		}
 	}
+
+	if (mapGroups.size <= 2) return;
+
+	// Remove all groups that are contained by the union of multiple groups
+	// Theory: reconstruct the K-Map, starting with the biggest group. If a group's region is already filled, discard the group
+	/* const groupsSorted: Group[] = [];
+	for (const [offset, size] of mapGroups) {
+		groupsSorted.push(new Group(offset, size));
+	}
+	groupsSorted.sort((a, b) => b.volume - a.volume);
+
+	const newMap = new Karnaugh(map.array.length); */
 };
 
-export const generateExpression = (groups: Map<number[], Set<number[]>>, nInputBits: number) => {
+export const generateExpression = (groups: MapSet<number[], number[]>, nInputBits: number) => {
 	const parts: number[][] = [];
 
-	for (const [offset, sizes] of groups) {
+	for (const [offset, sizes] of groups.sets()) {
 		const grays = offset.map(coord => grayOrder[coord]);
 
 		for (const size of sizes) {
