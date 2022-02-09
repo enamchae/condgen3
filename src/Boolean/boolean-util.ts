@@ -117,3 +117,9 @@ export class Karnaugh extends CubeMat<boolean> {
 		return index;
 	}
 } */
+
+enum Output {
+	TRUE,
+	FALSE,
+	DONT_CARE,
+}

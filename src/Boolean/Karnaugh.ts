@@ -4,74 +4,7 @@
 
 import {grayOrder, CubeMat, Karnaugh} from "./boolean-util";
 import {combineBoolean} from "./permute";
-import MapSet from "../util/mapset";
-
-class Group {
-	readonly volume: number;
-
-	constructor(
-		readonly offset: number[],
-		/**
-		 * log2(true length) in each direction.
-		 */
-		readonly size: number[],
-	) {
-		let volume = 0;
-		for (const length of size) {
-			volume += length;
-		}
-		this.volume = volume;
-	}
-
-	eq(target: Group) {
-		return this.offset.every((coord, i) => coord === target.offset[i] && this.size[i] === target.size[i]);
-	}
-
-	/**
-	 * Determines whether this group contains another group, without considering the wrapping case.
-	 * @param target 
-	 * @returns 
-	 */
-	partialContains(target: Group) {
-		// TODO wrapping in an axis with 1 variable?
-
-		const result = 
-				// Is the offset of the container group less than the offset of this group in every direction?
-				target.offset.every((coord, i) => coord >= this.offset[i])
-
-				// Does the container group extend past this group in every direction?
-				&& target.offset.every((coord, i) =>
-						coord + 2**target.size[i] <= this.offset[i] + 2**this.size[i]
-						|| this.size[i] === 2 // Container size is 4 and wraps around infinitely
-						// (handles case where container is size 4, while smaller is size 2 and wraps)
-				);
-
-		return result;
-	}
-
-	contains(target: Group) {
-		if (this.partialContains(target)) {
-			return true;
-		}
-		
-		// Determine if the container has an offset of 3 and size of 1 in any direction (it wraps around)
-		let containerWraps = false;
-		const newOffset = [...this.offset];
-
-		for (let i = 0; i < target.offset.length; i++) {
-			if (this.offset[i] !== 3 || this.size[i] !== 1) continue;
-
-			containerWraps = true;
-			newOffset[i] -= 4; // Shift the container group back
-		}
-		
-		// Try again, but with the shifted coordinates
-		if (containerWraps && new Group(newOffset, this.size).contains(target)) {
-			return true;
-		}
-		return false;
-	}
-}
+import {Group} from "./remove-redundant-groups";
 
 /* export */ const buildKarnaughMap = (truthTable: boolean[]) => {
 	const truth = new CubeMat<boolean>(2, truthTable.length);
@@ -184,17 +117,17 @@ export const findKarnaughGroups = (truthTable: boolean[]) => {
 
 const getSingleDimensionDistances = (map: Karnaugh, coords: number[]) => {
 	const singleDimensionDistances = Array(map.nDimensions).fill(0); // log2(distance)
-	for (let nDimension = 0; nDimension < map.nDimensions; nDimension++) {
-		const axisHasTwoVariables = map.isEven || nDimension < map.nDimensions - 1; // code repeated from `interpretGroup`
+	for (let dimension = 0; dimension < map.nDimensions; dimension++) {
+		const axisHasTwoVariables = map.isEven || dimension < map.nDimensions - 1; // code repeated from `interpretGroup`
 
 		// Check for width 2
-		if (!axisHasTwoVariables && coords[nDimension] !== 0) continue; // Would have been found already
+		if (!axisHasTwoVariables && coords[dimension] !== 0) continue; // Would have been found already
 		
 		const testCoords = [...coords];
-		testCoords[nDimension] = (testCoords[nDimension] + 1) % 4;
+		testCoords[dimension] = (testCoords[dimension] + 1) % 4;
 
 		if (map.get(testCoords) === true) {
-			singleDimensionDistances[nDimension] = 1;
+			singleDimensionDistances[dimension] = 1;
 		} else {
 			continue;
 		}
@@ -202,16 +135,16 @@ const getSingleDimensionDistances = (map: Karnaugh, coords: number[]) => {
 		if (!axisHasTwoVariables) continue;
 
 		// Check for width 4
-		if (coords[nDimension] !== 0) continue; // Would have been found already
+		if (coords[dimension] !== 0) continue; // Would have been found already
 
 		const testCoords2 = [...coords];
-		testCoords2[nDimension] = (testCoords2[nDimension] + 2) % 4;
+		testCoords2[dimension] = (testCoords2[dimension] + 2) % 4;
 		const testCoords3 = [...coords];
-		testCoords3[nDimension] = (testCoords3[nDimension] + 3) % 4;
+		testCoords3[dimension] = (testCoords3[dimension] + 3) % 4;
 
 		if (map.get(testCoords2) === true
 				&& map.get(testCoords3) === true) {
-			singleDimensionDistances[nDimension] = 2;
+			singleDimensionDistances[dimension] = 2;
 		}
 	}
 
@@ -258,6 +191,56 @@ const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: n
 	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
 };
 
+
+class Cuboid {
+	readonly nDimensions: number;
+
+	constructor(
+		readonly offset: number[],
+		/**
+		 * True size; not log2.
+		 */
+		readonly size: number[],
+	) {
+		this.nDimensions = offset.length;
+	}
+
+	static thatCovers(map: Karnaugh): Cuboid {
+		const size: number[] = [];
+		for (let i = 0; i < map.nDimensions; i++) {
+			size.push(i < map.nDimensions - 1 || map.isEven ? 4 : 2);
+		}
+
+		return new Cuboid(Array(map.nDimensions).fill(0), size);
+	}
+
+	/**
+	 * (Due to wrapping, a group may consist of multiple cuboids.)
+	 * @param group 
+	 */
+	static forGroup(group: Group): Cuboid[] {
+
+	}
+
+	subtract(other: Cuboid): SubtractResult {
+		const outCuboids: Cuboid[] = [];
+		let changed = false;
+
+		for (let dimension = 0; dimension < this.nDimensions; dimension++) {
+			
+		}
+
+		return {
+			changed,
+			subcuboids: outCuboids,
+		};
+	}
+}
+interface SubtractResult {
+	readonly changed: boolean;
+	readonly subcuboids: Cuboid[];
+}
+
 const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	// Remove all groups that are contained by 1 other group
 	// (unoptimized)
@@ -271,14 +254,34 @@ const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	if (groups.size <= 2) return;
 
 	// Remove all groups that are contained by the union of multiple groups
-	// Theory: reconstruct the K-Map, starting with the biggest group. If a group's region is already filled, discard the group
-	/* const groupsSorted: Group[] = [];
-	for (const [offset, size] of mapGroups) {
-		groupsSorted.push(new Group(offset, size));
-	}
-	groupsSorted.sort((a, b) => b.volume - a.volume);
+	// Determine if a N-cuboid is completely covered by a set of other parallel N-cuboids:
+	//  • Create a cuboid covering the entire map and add it to a [set of remaining cuboids] S
+	//     (the cuboids in S altogether represent, for any group during the iteration, a volume that has not been
+	//     covered by any larger groups)
+	//  • Starting with the largest group, subtract (cut out) [the cuboid representing the group] C from each cuboid D in S
+	//      • If C does not affect D during the subtraction, remove C from the set of groups
+	//      • Replace D in S with the cuboids resulting from the subtraction 
+	const uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
+	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
 
-	const newMap = new Karnaugh(map.array.length); */
+	for (const group of groupsSorted) {
+		let atLeastOneChanged = false;
+		const groupCuboids = Cuboid.forGroup(group);
+
+		for (const cuboid of uncoveredCuboids) {
+			const {changed, subcuboids} = cuboid.subtract(groupCuboids);
+			if (!changed) continue;
+
+			atLeastOneChanged = true;
+			uncoveredCuboids.delete(cuboid);
+			for (const subcuboid of subcuboids) {
+				uncoveredCuboids.add(subcuboid);
+			}
+		}
+
+		if (atLeastOneChanged) continue;
+		groups.delete(group);
+	}
 };
 
 export const generateExpression = (groups: Set<Group>, nInputBits: number) => {
@@ -291,7 +294,7 @@ export const generateExpression = (groups: Set<Group>, nInputBits: number) => {
 		parts.push(dependents);
 	}
 
-	if (parts.length === 0) {// Empty sum
+	if (parts.length === 0) { // Empty sum
 		return "0"
 	}
 	return parts.map(part => {
