@@ -4,7 +4,9 @@
 
 import {grayOrder, CubeMat, Karnaugh} from "./boolean-util";
 import {combineBoolean} from "./permute";
-import {Group} from "./remove-redundant-groups";
+import {Group, removeRedundantGroups} from "./remove-redundant-groups";
+
+export {Group} from "./remove-redundant-groups";
 
 /* export */ const buildKarnaughMap = (truthTable: boolean[]) => {
 	const truth = new CubeMat<boolean>(2, truthTable.length);
@@ -189,99 +191,6 @@ const testDimensions = (prefix: CubeMat<number>, coords: number[], dimensions: n
 	// Count the number of trues
 	const prefixResult = samplePrefix(prefix, coords, farCoords);
 	return prefixResult === 2**dimensions.reduce((exponent, length) => exponent + length, 0);
-};
-
-
-class Cuboid {
-	readonly nDimensions: number;
-
-	constructor(
-		readonly offset: number[],
-		/**
-		 * True size; not log2.
-		 */
-		readonly size: number[],
-	) {
-		this.nDimensions = offset.length;
-	}
-
-	static thatCovers(map: Karnaugh): Cuboid {
-		const size: number[] = [];
-		for (let i = 0; i < map.nDimensions; i++) {
-			size.push(i < map.nDimensions - 1 || map.isEven ? 4 : 2);
-		}
-
-		return new Cuboid(Array(map.nDimensions).fill(0), size);
-	}
-
-	/**
-	 * (Due to wrapping, a group may consist of multiple cuboids.)
-	 * @param group 
-	 */
-	static forGroup(group: Group): Cuboid[] {
-
-	}
-
-	subtract(other: Cuboid): SubtractResult {
-		const outCuboids: Cuboid[] = [];
-		let changed = false;
-
-		for (let dimension = 0; dimension < this.nDimensions; dimension++) {
-			
-		}
-
-		return {
-			changed,
-			subcuboids: outCuboids,
-		};
-	}
-}
-interface SubtractResult {
-	readonly changed: boolean;
-	readonly subcuboids: Cuboid[];
-}
-
-const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
-	// Remove all groups that are contained by 1 other group
-	// (unoptimized)
-	for (const group of groups) {
-		for (const container of groups) {
-			if (group.eq(container) || !container.contains(group)) continue;
-			groups.delete(group);
-		}
-	}
-
-	if (groups.size <= 2) return;
-
-	// Remove all groups that are contained by the union of multiple groups
-	// Determine if a N-cuboid is completely covered by a set of other parallel N-cuboids:
-	//  • Create a cuboid covering the entire map and add it to a [set of remaining cuboids] S
-	//     (the cuboids in S altogether represent, for any group during the iteration, a volume that has not been
-	//     covered by any larger groups)
-	//  • Starting with the largest group, subtract (cut out) [the cuboid representing the group] C from each cuboid D in S
-	//      • If C does not affect D during the subtraction, remove C from the set of groups
-	//      • Replace D in S with the cuboids resulting from the subtraction 
-	const uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
-	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
-
-	for (const group of groupsSorted) {
-		let atLeastOneChanged = false;
-		const groupCuboids = Cuboid.forGroup(group);
-
-		for (const cuboid of uncoveredCuboids) {
-			const {changed, subcuboids} = cuboid.subtract(groupCuboids);
-			if (!changed) continue;
-
-			atLeastOneChanged = true;
-			uncoveredCuboids.delete(cuboid);
-			for (const subcuboid of subcuboids) {
-				uncoveredCuboids.add(subcuboid);
-			}
-		}
-
-		if (atLeastOneChanged) continue;
-		groups.delete(group);
-	}
 };
 
 export const generateExpression = (groups: Set<Group>, nInputBits: number) => {

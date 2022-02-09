@@ -1,7 +1,9 @@
 import {Karnaugh} from "./boolean-util";
+import {anyCombine, anyCombineBoolean} from "./permute";
 
 export class Group {
 	readonly volume: number;
+	readonly nDimensions: number;
 
 	constructor(
 		readonly offset: number[],
@@ -15,6 +17,7 @@ export class Group {
 			volume += length;
 		}
 		this.volume = volume;
+		this.nDimensions = offset.length;
 	}
 
 	eq(target: Group) {
@@ -65,10 +68,217 @@ export class Group {
 		}
 		return false;
 	}
+
+	#length: number[];
+	get length() {
+		return this.#length ?? (this.#length = this.size.map(size => 2**size));
+	}
+
+	#endCorner: number[];
+	get endCorner() {
+		return this.#endCorner ?? (this.#endCorner = this.offset.map((coord, i) => coord + this.length[i]));
+	}
 }
 
-namespace naive {
-	export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
-		const newMap = new Karnaugh(map.array.length);
-	};
+class Cuboid {
+	readonly nDimensions: number;
+
+	constructor(
+		readonly offset: number[],
+		/**
+		 * True size; not log2.
+		 */
+		readonly length: number[],
+	) {
+		this.nDimensions = offset.length;
+	}
+
+	static thatCovers(map: Karnaugh): Cuboid {
+		const length: number[] = [];
+		for (let i = 0; i < map.nDimensions; i++) {
+			length.push(i < map.nDimensions - 1 || map.isEven ? 4 : 2);
+		}
+
+		return new Cuboid(Array(map.nDimensions).fill(0), length);
+	}
+
+	/**
+	 * (Due to wrapping, a group may consist of multiple cuboids.)
+	 * @param group 
+	 */
+	static forGroup(group: Group): Cuboid[] {
+		// Find all groups in which this group wraps
+		const wrappedDimensions = [];
+		for (let i = 0; i < group.nDimensions; i++) {
+			if (group.endCorner[i] < 4) continue;
+			wrappedDimensions.push(i);
+		}
+
+		const cuboids = [];
+
+		for (const combo of anyCombineBoolean(wrappedDimensions.length)) {
+			const offset = [...group.offset];
+			const length = [...group.length];
+			for (let i = 0; i < wrappedDimensions.length; i++) {
+				const firstLength = 4 - group.offset[i];
+
+				offset[i] = combo[i] ? group.offset[i] : 0;
+				length[i] = combo[i] ? firstLength : group.length[i] - firstLength;
+			}
+
+			cuboids.push(new Cuboid(offset, length));
+		}
+
+		return cuboids;
+	}
+
+	#endCorner: number[];
+	get endCorner(): number[] {
+		return this.#endCorner ?? (this.#endCorner = this.offset.map((coord, i) => coord + this.length[i]));
+	}
+
+	subtract(target: Cuboid): SubtractResult {
+		const newCuboids: Cuboid[] = [];
+
+		const newLeftCuboid = (dimension: number): Cuboid => {
+			const offset: number[] = [];
+			const size: number[] = [];
+			for (let i = 0; i < this.nDimensions; i++) {
+				if (i < dimension) {
+					offset.push(target.offset[i]);
+					// max() expression here handles when the target cuboid extends behind this cuboid
+					size.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i]));
+				} else if (i === dimension) {
+					offset.push(this.offset[i]);
+					size.push(target.offset[i] - this.offset[i]);
+				} else {
+					offset.push(this.offset[i]);
+					size.push(this.length[i]);
+				}
+			}
+
+			return new Cuboid(offset, size);
+		};
+
+		const newRightCuboid = (dimension: number): Cuboid => {
+			const offset: number[] = [];
+			const size: number[] = [];
+			for (let i = 0; i < this.nDimensions; i++) {
+				if (i < dimension) {
+					offset.push(target.offset[i]);
+					// max() expression here handles when the target cuboid extends past this cuboid
+					size.push(target.length[i] - Math.max(0, target.endCorner[i] - this.endCorner[i]));
+				} else if (i === dimension) {
+					offset.push(target.endCorner[i]);
+					size.push(this.endCorner[i] - target.endCorner[i]);
+				} else {
+					offset.push(this.offset[i]);
+					size.push(this.length[i]);
+				}
+			}
+
+			return new Cuboid(offset, size);
+		};
+
+		for (let dimension = 0; dimension < this.nDimensions; dimension++) {
+			// Does the target actually intersect this? (Only one direction needed to return no)
+			if (target.endCorner[dimension] <= this.offset[dimension] || this.endCorner[dimension] <= target.offset[dimension]) {
+				return {
+					changed: false,
+					subcuboids: [this],
+				}
+			}
+
+			if (this.offset[dimension] < target.offset[dimension]) {
+				newCuboids.push(newLeftCuboid(dimension));
+			}
+			if (target.endCorner[dimension] < this.endCorner[dimension]) {
+				newCuboids.push(newRightCuboid(dimension));
+			}
+		}
+
+		return {
+			changed: true,
+			subcuboids: newCuboids,
+		};
+	}
 }
+interface SubtractResult {
+	readonly changed: boolean;
+	readonly subcuboids: Cuboid[];
+}
+
+export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
+	// Remove all groups that are contained by 1 other group
+	// (unoptimized)
+	for (const group of groups) {
+		for (const container of groups) {
+			if (group.eq(container) || !container.contains(group)) continue;
+			groups.delete(group);
+		}
+	}
+
+	if (groups.size <= 2) return;
+
+	// Remove all groups that are contained by the union of multiple groups
+	// Determine if a N-cuboid is completely covered by a set of other parallel N-cuboids:
+	//  • Create a cuboid covering the entire map and add it to a [set of remaining cuboids] S
+	//     (the cuboids in S altogether represent, for any group during the iteration, a volume that has not been
+	//     covered by any larger groups)
+	//  • Starting with the largest group, subtract (cut out) [the cuboid representing the group] C from each cuboid D in S
+	//      • If C does not affect D during the subtraction, remove C from the set of groups
+	//      • Replace D in S with the cuboids resulting from the subtraction 
+	const uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
+	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
+
+	for (const group of groupsSorted) {
+		let atLeastOneChanged = false;
+
+		for (const groupCuboid of Cuboid.forGroup(group)) {
+			for (const cuboid of uncoveredCuboids) {
+				const {changed, subcuboids} = cuboid.subtract(groupCuboid);
+				if (!changed) continue;
+	
+				atLeastOneChanged = true;
+				uncoveredCuboids.delete(cuboid);
+				for (const subcuboid of subcuboids) {
+					uncoveredCuboids.add(subcuboid);
+				}
+			}
+		}
+
+		if (atLeastOneChanged) continue;
+		groups.delete(group);
+	}
+};
+
+/*namespace naive {
+
+	const fillMap = (map: Karnaugh, offset: number[], size: number[], dimension: number) => {
+		if 
+
+		for (let i = 0; i < size[dimension]; i++) {
+			const newOffset = [...offset];
+			newOffset[dimension]++;
+
+		}
+	};
+
+	const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
+		const newMap = new Karnaugh(map.array.length);
+		const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
+		
+		for (const group of groupsSorted) {
+			let anyChanged = false;
+
+			fillMap(newMap, group);
+
+			const oldValue = newMap.get(group.offset);
+			if (oldValue === false) {
+				anyChanged = true;
+			}
+
+			newMap.set(true, group.offset);
+		}
+	};
+}*/

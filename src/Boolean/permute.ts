@@ -112,3 +112,48 @@ export function* combineN(nTotal: number, nSelected: number, offset: number=0): 
 		}
 	}
 }
+
+export function* combine(items: number[], nSelected: number, i: number=0): Generator<number[], void, void> {
+	if (nSelected > items.length) throw new RangeError();
+
+	switch (items.length) {
+		case 1:
+			if (nSelected === 0) {
+				yield [];
+			} else {
+				yield [items[i]];
+			}
+
+			return;
+		
+		case 0:
+			yield [];
+			return;
+	}
+	
+	// Skip the current entry
+	if (nSelected <= items.length - 1) {
+		for (const subcombo of combineN(items.length - 1, nSelected, i + 1)) {
+			yield subcombo;
+		}
+	}
+
+	// Add the current entry
+	if (nSelected > 0) {
+		for (const subcombo of combineN(items.length - 1, nSelected - 1, i + 1)) {
+			yield [items[i], ...subcombo];
+		}
+	}
+}
+
+export function* anyCombineBoolean(nTotal: number) {
+	for (let i = 0; i < nTotal; i++) {
+		yield* combineBoolean(nTotal, i);
+	}
+}
+
+export function* anyCombine(items: number[]) {
+	for (let i = 0; i < items.length; i++) {
+		yield* combine(items, i);
+	}
+}
