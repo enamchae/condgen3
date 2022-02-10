@@ -147,13 +147,13 @@ export function* combine(items: number[], nSelected: number, i: number=0): Gener
 }
 
 export function* anyCombineBoolean(nTotal: number) {
-	for (let i = 0; i < nTotal; i++) {
+	for (let i = 0; i <= nTotal; i++) {
 		yield* combineBoolean(nTotal, i);
 	}
 }
 
 export function* anyCombine(items: number[]) {
-	for (let i = 0; i < items.length; i++) {
+	for (let i = 0; i <= items.length; i++) {
 		yield* combine(items, i);
 	}
 }

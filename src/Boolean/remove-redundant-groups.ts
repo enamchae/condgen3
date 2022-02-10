@@ -2,6 +2,9 @@ import {Karnaugh} from "./boolean-util";
 import {anyCombineBoolean} from "./permute";
 
 export class Group {
+	/**
+	 * log2(true volume).
+	 */
 	readonly volume: number;
 	readonly nDimensions: number;
 
@@ -107,13 +110,15 @@ export class Cuboid {
 	 * @param group 
 	 */
 	static forGroup(group: Group): Cuboid[] {
-		console.log(group, group.length);
-
 		// Find all groups in which this group wraps
 		const wrappedDimensions = [];
 		for (let i = 0; i < group.nDimensions; i++) {
-			if (group.endCorner[i] < 4) continue;
+			if (group.endCorner[i] <= 4) continue;
 			wrappedDimensions.push(i);
+		}
+
+		if (wrappedDimensions.length === 0) {
+			return [new Cuboid(group.offset, group.length)];
 		}
 
 		const cuboids = [];
@@ -122,10 +127,11 @@ export class Cuboid {
 			const offset = [...group.offset];
 			const length = [...group.length];
 			for (let i = 0; i < wrappedDimensions.length; i++) {
-				const firstLength = 4 - group.offset[i];
+				const dimension = wrappedDimensions[i];
+				const firstLength = 4 - group.offset[dimension];
 
-				offset[i] = combo[i] ? group.offset[i] : 0;
-				length[i] = combo[i] ? firstLength : group.length[i] - firstLength;
+				offset[dimension] = combo[i] ? group.offset[dimension] : 0;
+				length[dimension] = combo[i] ? firstLength : group.length[dimension] - firstLength;
 			}
 
 			cuboids.push(new Cuboid(offset, length));
@@ -233,15 +239,12 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	const uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
 	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
 
-	console.log([...groups]);
-
 	for (const group of groupsSorted) {
 		let atLeastOneChanged = false;
 
 		for (const groupCuboid of Cuboid.forGroup(group)) {
 			for (const cuboid of uncoveredCuboids) {
 				const {changed, subcuboids} = cuboid.subtract(groupCuboid);
-				console.log(groupCuboid, changed);
 				if (!changed) continue;
 	
 				atLeastOneChanged = true;
@@ -251,8 +254,6 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 				}
 			}
 		}
-		
-		console.log([...groups]);
 
 		if (atLeastOneChanged) continue;
 		groups.delete(group);

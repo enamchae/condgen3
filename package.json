@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "",
   "scripts": {
-    "start": "concurrently \"npm run parcel\" \"npm run bsync\"",
+    "serve": "concurrently \"npm run parcel\" \"npm run bsync\"",
     "parcel": "parcel watch src/index.html",
     "bsync": "browser-sync start -s \"dist\" -f \"dist\"",
     "test": "jest",
