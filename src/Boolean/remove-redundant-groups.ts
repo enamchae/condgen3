@@ -1,5 +1,5 @@
 import {Karnaugh} from "./boolean-util";
-import {anyCombine, anyCombineBoolean} from "./permute";
+import {anyCombineBoolean} from "./permute";
 
 export class Group {
 	readonly volume: number;
@@ -80,7 +80,7 @@ export class Group {
 	}
 }
 
-class Cuboid {
+export class Cuboid {
 	readonly nDimensions: number;
 
 	constructor(
@@ -107,6 +107,8 @@ class Cuboid {
 	 * @param group 
 	 */
 	static forGroup(group: Group): Cuboid[] {
+		console.log(group, group.length);
+
 		// Find all groups in which this group wraps
 		const wrappedDimensions = [];
 		for (let i = 0; i < group.nDimensions; i++) {
@@ -231,12 +233,15 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	const uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
 	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
 
+	console.log([...groups]);
+
 	for (const group of groupsSorted) {
 		let atLeastOneChanged = false;
 
 		for (const groupCuboid of Cuboid.forGroup(group)) {
 			for (const cuboid of uncoveredCuboids) {
 				const {changed, subcuboids} = cuboid.subtract(groupCuboid);
+				console.log(groupCuboid, changed);
 				if (!changed) continue;
 	
 				atLeastOneChanged = true;
@@ -246,6 +251,8 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 				}
 			}
 		}
+		
+		console.log([...groups]);
 
 		if (atLeastOneChanged) continue;
 		groups.delete(group);

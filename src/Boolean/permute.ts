@@ -2,7 +2,7 @@
  * @file Methods for generating permutations and combinations.
  */
 
-/* const permutations = (items: unknown[]): unknown[][] => {
+/* const permutations = <T>(items: T[]): T[][] => {
 	switch (items.length) {
 		case 1:
 			return [[items[0]]];
@@ -27,7 +27,7 @@
 
 export default permutations; */
 
-export function* permute(items: unknown[]): Generator<unknown[], void, void> {
+export function* permute<T>(items: T[]): Generator<T[], void, void> {
 	switch (items.length) {
 		case 1:
 			yield [items[0]];
