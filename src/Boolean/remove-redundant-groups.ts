@@ -1,5 +1,5 @@
 import {Karnaugh} from "./boolean-util";
-import {anyCombineBoolean} from "./permute";
+import {anyCombineBoolean, permute, rangeArray} from "./permute";
 
 export class Group {
 	/**
@@ -194,7 +194,7 @@ export class Cuboid {
 				return {
 					changed: false,
 					subcuboids: [this],
-				}
+				};
 			}
 
 			if (this.offset[dimension] < target.offset[dimension]) {
@@ -229,14 +229,19 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	if (groups.size <= 2) return;
 
 	// Remove all groups that are contained by the union of multiple groups
+	// (this is basically the minimum set cover problem so it's intrinsically slow)
+
+
+	// The commented solution here is incomplete since the order of same-size groups matters
+	
 	// Determine if a N-cuboid is completely covered by a set of other parallel N-cuboids:
 	//  • Create a cuboid covering the entire map and add it to a [set of remaining cuboids] S
 	//     (the cuboids in S altogether represent, for any group during the iteration, a volume that has not been
 	//     covered by any larger groups)
 	//  • Starting with the largest group, subtract (cut out) [the cuboid representing the group] C from each cuboid D in S
 	//      • If C does not affect D during the subtraction, remove C from the set of groups
-	//      • Replace D in S with the cuboids resulting from the subtraction 
-	const uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
+	//      • Replace D in S with the cuboids resulting from the subtraction
+/*	const uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
 	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
 
 	for (const group of groupsSorted) {
@@ -257,6 +262,71 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 
 		if (atLeastOneChanged) continue;
 		groups.delete(group);
+	}
+	
+	return; */
+	
+	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
+	let uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
+
+	let currentVolumeIndexStart = 0;
+	let currentVolume: number;
+	let currentVolumeIndexEnd: number;
+
+	while (currentVolumeIndexStart < groupsSorted.length) {
+		currentVolume = groupsSorted[currentVolumeIndexStart].volume;
+		currentVolumeIndexEnd = groupsSorted.length;
+
+		for (let i = currentVolumeIndexStart; i < groupsSorted.length; i++) {
+			if (groupsSorted[i].volume === currentVolume) continue;
+
+			currentVolumeIndexEnd = i;
+			break;
+		}
+
+		// Test every permutation of groups with the volume `currentVolume` and find the permutation that removes the most groups
+		let maximizedRemovedGroups = new Set<Group>();
+		let maximizedUncoveredCuboids = uncoveredCuboids;
+
+		for (const indexes of permute(rangeArray(currentVolumeIndexStart, currentVolumeIndexEnd))) {
+			const permRemovedGroups = new Set<Group>();
+			const permUncoveredCuboids = new Set(uncoveredCuboids);
+
+			for (const index of indexes) {
+				const group = groupsSorted[index];
+
+				let atLeastOneCuboidChanged = false;
+
+				for (const groupCuboid of Cuboid.forGroup(group)) {
+					for (const cuboid of permUncoveredCuboids) {
+						const {changed, subcuboids} = cuboid.subtract(groupCuboid);
+						if (!changed) continue;
+			
+						atLeastOneCuboidChanged = true;
+						permUncoveredCuboids.delete(cuboid);
+						for (const subcuboid of subcuboids) {
+							permUncoveredCuboids.add(subcuboid);
+						}
+					}
+				}
+
+				if (atLeastOneCuboidChanged) continue;
+				permRemovedGroups.add(group);
+			}
+
+			if (permRemovedGroups.size > maximizedRemovedGroups.size) {
+				maximizedRemovedGroups = permRemovedGroups;
+				maximizedUncoveredCuboids = permUncoveredCuboids;
+			}
+		}
+
+		// Permutation with the most removed groups has been found
+		for (const group of maximizedRemovedGroups) {
+			groups.delete(group);
+		}
+		uncoveredCuboids = maximizedUncoveredCuboids;
+
+		currentVolumeIndexStart = currentVolumeIndexEnd;
 	}
 };
 

@@ -157,3 +157,11 @@ export function* anyCombine(items: number[]) {
 		yield* combine(items, i);
 	}
 }
+
+export function rangeArray(start: number, end: number) {
+	const array = [];
+	for (let i = start; i < end; i++) {
+		array.push(i);
+	}
+	return array;
+}

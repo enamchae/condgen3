@@ -37,22 +37,34 @@ describe("Cuboid.fromGroup", () => {
 	});
 
 	it("handles wrapping over 1 axis", () => {
-		expect(Cuboid.forGroup(new Group([3, 0], [1, 0]))).toContainEqual(new Cuboid([3, 0], [1, 1]));
-		expect(Cuboid.forGroup(new Group([3, 0], [1, 0]))).toContainEqual(new Cuboid([0, 0], [1, 1]));
+		{
+			const cuboids = Cuboid.forGroup(new Group([3, 0], [1, 0]));
+			expect(cuboids).toContainEqual(new Cuboid([3, 0], [1, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([0, 0], [1, 1]));
+		}
 
-		expect(Cuboid.forGroup(new Group([1, 3, 3], [1, 0, 1]))).toContainEqual(new Cuboid([1, 3, 3], [2, 1, 1]));
-		expect(Cuboid.forGroup(new Group([1, 3, 3], [1, 0, 1]))).toContainEqual(new Cuboid([1, 3, 0], [2, 1, 1]));
+		{
+			const cuboids = Cuboid.forGroup(new Group([1, 3, 3], [1, 0, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([1, 3, 3], [2, 1, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([1, 3, 0], [2, 1, 1]));
+		}
 	});
 
 	it("handles wrapping over 2 axes", () => {
-		expect(Cuboid.forGroup(new Group([3, 3], [1, 1]))).toContainEqual(new Cuboid([3, 3], [1, 1]));
-		expect(Cuboid.forGroup(new Group([3, 3], [1, 1]))).toContainEqual(new Cuboid([0, 3], [1, 1]));
-		expect(Cuboid.forGroup(new Group([3, 3], [1, 1]))).toContainEqual(new Cuboid([3, 0], [1, 1]));
-		expect(Cuboid.forGroup(new Group([3, 3], [1, 1]))).toContainEqual(new Cuboid([0, 0], [1, 1]));
+		{
+			const cuboids = Cuboid.forGroup(new Group([3, 3], [1, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([3, 3], [1, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([0, 3], [1, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([3, 0], [1, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([0, 0], [1, 1]));
+		}
 
-		expect(Cuboid.forGroup(new Group([2, 3, 0, 3], [1, 1, 2, 1]))).toContainEqual(new Cuboid([2, 3, 0, 3], [2, 1, 4, 1]));
-		expect(Cuboid.forGroup(new Group([2, 3, 0, 3], [1, 1, 2, 1]))).toContainEqual(new Cuboid([2, 0, 0, 3], [2, 1, 4, 1]));
-		expect(Cuboid.forGroup(new Group([2, 3, 0, 3], [1, 1, 2, 1]))).toContainEqual(new Cuboid([2, 3, 0, 0], [2, 1, 4, 1]));
-		expect(Cuboid.forGroup(new Group([2, 3, 0, 3], [1, 1, 2, 1]))).toContainEqual(new Cuboid([2, 0, 0, 0], [2, 1, 4, 1]));
+		{
+			const cuboids = Cuboid.forGroup(new Group([2, 3, 0, 3], [1, 1, 2, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([2, 3, 0, 3], [2, 1, 4, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([2, 0, 0, 3], [2, 1, 4, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([2, 3, 0, 0], [2, 1, 4, 1]));
+			expect(cuboids).toContainEqual(new Cuboid([2, 0, 0, 0], [2, 1, 4, 1]));
+		}
 	});
 });
