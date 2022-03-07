@@ -8,7 +8,11 @@ export default class MapSet<K, V> {
 	get size() { return this.#size; }
 
 	add(key: K, value: V) {
-		const set = this.map.get(key) ?? new Set<V>();
+		let set = this.map.get(key);
+		if (!set) {
+			set = new Set<V>();
+			this.map.set(key, set);
+		} 
 
 		this.#size -= set.size;
 		set.add(value);

@@ -211,6 +211,12 @@ describe(removeRedundantGroups.name, () => {
 				new Group([0, 1], [1, 1]), // ✓
 				new Group([1, 2], [1, 1]), // ✓
 				new Group([2, 2], [1, 1]),
+
+				// wrap around
+				// new Group([3, 0], [1, 1]),
+				// new Group([3, 1], [1, 1]),
+				// new Group([1, 3], [1, 1]),
+				// new Group([2, 3], [1, 1]),
 			]);
 
 			expect([...removeRedundantGroups(groups, map)])

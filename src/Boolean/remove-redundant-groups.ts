@@ -1,3 +1,4 @@
+import MapSet from "../util/mapset";
 import {Karnaugh} from "./boolean-util";
 import {anyCombineBoolean, permute, rangeArray} from "./permute";
 
@@ -265,40 +266,24 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	}
 	
 	return; */
-	
-	const groupsSorted = [...groups].sort((a, b) => b.volume - a.volume);
+
+	const groupsByVolume = new MapSet<number, Group>();
+	for (const group of groups) {
+		groupsByVolume.add(group.volume, group);
+	}
+
+	const groupsSorted = [...groupsByVolume.sets()].sort((a, b) => b[0] - a[0]);
 	let uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
 
-	let currentVolumeIndexStart = 0;
-	let currentVolume: number;
-	let currentVolumeIndexEnd: number;
-
-	while (currentVolumeIndexStart < groupsSorted.length) {
-		currentVolume = groupsSorted[currentVolumeIndexStart].volume;
-		currentVolumeIndexEnd = groupsSorted.length;
-
-		for (let i = currentVolumeIndexStart; i < groupsSorted.length; i++) {
-			if (groupsSorted[i].volume === currentVolume) continue;
-
-			currentVolumeIndexEnd = i;
-			break;
-		}
-
-		// Test every permutation of groups with the volume `currentVolume` and find the permutation that removes the most groups
+	for (const [volume, groupsOfVolume] of groupsSorted) {
 		let maximizedRemovedGroups = new Set<Group>();
 		let maximizedUncoveredCuboids = uncoveredCuboids;
 
-		// TODO If a group is removed in one permutation, do we know it is always redundant?
-		for (const indexes of permute(rangeArray(currentVolumeIndexStart, currentVolumeIndexEnd))) {
-			console.log(currentVolumeIndexEnd - currentVolumeIndexStart);
-			debugger;
-
+		for (const permutation of permute([...groupsOfVolume])) {
 			const permRemovedGroups = new Set<Group>();
 			const permUncoveredCuboids = new Set(uncoveredCuboids);
 
-			for (const index of indexes) {
-				const group = groupsSorted[index];
-
+			for (const group of permutation) {
 				let atLeastOneCuboidChanged = false;
 
 				for (const groupCuboid of Cuboid.forGroup(group)) {
@@ -329,8 +314,6 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 			groups.delete(group);
 		}
 		uncoveredCuboids = maximizedUncoveredCuboids;
-
-		currentVolumeIndexStart = currentVolumeIndexEnd;
 	}
 
 	return groups;
