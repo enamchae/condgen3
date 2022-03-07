@@ -221,12 +221,12 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	// (unoptimized)
 	for (const group of groups) {
 		for (const container of groups) {
-			if (group.eq(container) || !container.contains(group)) continue;
+			if (group === container || !container.contains(group)) continue;
 			groups.delete(group);
 		}
 	}
 
-	if (groups.size <= 2) return;
+	if (groups.size <= 2) return groups;
 
 	// Remove all groups that are contained by the union of multiple groups
 	// (this is basically the minimum set cover problem so it's intrinsically slow)
@@ -328,6 +328,8 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 
 		currentVolumeIndexStart = currentVolumeIndexEnd;
 	}
+
+	return groups;
 };
 
 /*namespace naive {

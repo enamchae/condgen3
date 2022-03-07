@@ -134,6 +134,8 @@ body {
 	margin: 0;
 
 	font-family: Atkinson Hyperlegible, Overpass, sans-serif;
+
+	// background: repeating-linear-gradient(45deg, #fff, #fea);
 }
 
 input,

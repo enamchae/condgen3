@@ -1,6 +1,7 @@
-import {Cuboid, Group} from "../../src/Boolean/remove-redundant-groups";
+import {Cuboid, Group, removeRedundantGroups} from "../../src/Boolean/remove-redundant-groups";
 import {Karnaugh} from "../../src/Boolean/boolean-util";
-import {describe, it, expect} from "@jest/globals";
+// import {describe, it, expect} from "@jest/globals";
+import "jest-extended";
 
 /* expect.extend({
 	asArrayToSuperset<T>(received: T[], set: Set<T>) {
@@ -65,6 +66,20 @@ describe("Cuboid.fromGroup", () => {
 			expect(cuboids).toContainEqual(new Cuboid([2, 0, 0, 3], [2, 1, 4, 1]));
 			expect(cuboids).toContainEqual(new Cuboid([2, 3, 0, 0], [2, 1, 4, 1]));
 			expect(cuboids).toContainEqual(new Cuboid([2, 0, 0, 0], [2, 1, 4, 1]));
+		}
+	});
+});
+
+describe(removeRedundantGroups.name, () => {
+	it("handles cases with no removed groups", () => {
+		{
+			const map = new Karnaugh(4**4);
+
+			const group = new Group([1, 1, 1, 1], [1, 1, 1, 1]);
+			const groups = new Set([group]);
+
+			removeRedundantGroups(groups, map);
+			expect(groups).toSatisfy((object: Set<Group>) => object.size === 1 && object.has(group));
 		}
 	});
 });
