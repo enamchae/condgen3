@@ -288,7 +288,11 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 		let maximizedRemovedGroups = new Set<Group>();
 		let maximizedUncoveredCuboids = uncoveredCuboids;
 
+		// TODO If a group is removed in one permutation, do we know it is always redundant?
 		for (const indexes of permute(rangeArray(currentVolumeIndexStart, currentVolumeIndexEnd))) {
+			console.log(currentVolumeIndexEnd - currentVolumeIndexStart);
+			debugger;
+
 			const permRemovedGroups = new Set<Group>();
 			const permUncoveredCuboids = new Set(uncoveredCuboids);
 

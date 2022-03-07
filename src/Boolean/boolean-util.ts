@@ -91,6 +91,10 @@ export class Karnaugh extends CubeMat<boolean> {
 
 		this.isEven = this.nInputBits % 2 === 0;
 	}
+
+	static withNDimensions(nDimensions: number) {
+		return new Karnaugh(4**nDimensions);
+	}
 }
 
 /* export class TruthTable extends CubeMat<boolean> {

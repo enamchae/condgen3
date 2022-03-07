@@ -71,15 +71,155 @@ describe("Cuboid.fromGroup", () => {
 });
 
 describe(removeRedundantGroups.name, () => {
-	it("handles cases with no removed groups", () => {
+	it("handles unoptimizable sets: single group", () => {
 		{
-			const map = new Karnaugh(4**4);
+			const map = Karnaugh.withNDimensions(4);
 
 			const group = new Group([1, 1, 1, 1], [1, 1, 1, 1]);
 			const groups = new Set([group]);
 
-			removeRedundantGroups(groups, map);
-			expect(groups).toSatisfy((object: Set<Group>) => object.size === 1 && object.has(group));
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([group]);
+		}
+	});
+
+	it("handles unoptimizable sets: overlapping groups", () => {
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			// █ █ █ .
+			// . . . .
+			// █ █ █ █
+			// . █ █ .
+			const groups = new Set([
+				new Group([0, 0], [1, 0]),
+				new Group([1, 0], [1, 0]),
+				new Group([0, 2], [2, 0]),
+				new Group([1, 2], [1, 1]),
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([...groups]);
+		}
+	});
+
+	it("handles groups coverable by a single other group", () => {
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			const groups = new Set([
+				new Group([1, 2], [0, 0]),
+				new Group([1, 1], [1, 1]), // ✓
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([new Group([1, 1], [1, 1])]);
+		}
+
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			const groups = new Set([
+				new Group([0, 0], [2, 1]), // ✓
+				new Group([2, 0], [1, 1]),
+				new Group([3, 0], [0, 1]),
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([new Group([0, 0], [2, 1])]);
+		}
+
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			const groups = new Set([
+				new Group([0, 0], [2, 1]), // ✓
+				new Group([0, 1], [2, 1]), // ✓
+				new Group([0, 0], [1, 2]), // ✓
+				new Group([1, 0], [1, 2]), // ✓
+				new Group([1, 0], [1, 1]),
+				new Group([2, 0], [1, 1]),
+				new Group([0, 1], [1, 1]),
+				new Group([0, 2], [1, 1]),
+				new Group([1, 1], [1, 1]),
+				new Group([1, 2], [1, 1]),
+				new Group([2, 1], [1, 1]),
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([
+						new Group([0, 0], [2, 1]),
+						new Group([0, 1], [2, 1]),
+						new Group([0, 0], [1, 2]),
+						new Group([1, 0], [1, 2]),
+					]);
+		}
+	});
+
+	it("handles groups coverable only by the union of other groups", () => {
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			const groups = new Set([
+				new Group([0, 1], [1, 1]), // ✓
+				new Group([1, 1], [1, 1]),
+				new Group([2, 1], [1, 1]), // ✓
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([
+						new Group([0, 1], [1, 1]),
+						new Group([2, 1], [1, 1]),
+					]);
+		}
+
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			const groups = new Set([
+				new Group([0, 0], [2, 0]), // ✓
+				new Group([0, 0], [0, 2]), // ✓
+				new Group([0, 0], [1, 1]),
+				new Group([1, 0], [1, 1]), // ✓
+				new Group([0, 1], [1, 1]), // ✓
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([
+						new Group([0, 0], [2, 0]),
+						new Group([0, 0], [0, 2]),
+						new Group([1, 0], [1, 1]),
+						new Group([0, 1], [1, 1]),
+					]);
+		}
+
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			// From truth table where all but ABCD' and A'B'C'D are true
+			// █ █ █ █
+			// █ █ . █
+			// █ █ █ █
+			// . █ █ █
+
+			const groups = new Set([
+				new Group([0, 0], [2, 0]), // ✓
+				new Group([0, 2], [2, 0]),
+				new Group([1, 0], [0, 2]),
+				new Group([3, 0], [0, 2]), // ✓
+				new Group([0, 0], [1, 1]),
+				new Group([0, 1], [1, 1]), // ✓
+				new Group([1, 2], [1, 1]), // ✓
+				new Group([2, 2], [1, 1]),
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([
+						new Group([0, 0], [2, 0]),
+						new Group([3, 0], [0, 2]),
+						new Group([0, 1], [1, 1]),
+						new Group([1, 2], [1, 1]),
+					]);
 		}
 	});
 });
