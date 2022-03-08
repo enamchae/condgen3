@@ -159,9 +159,8 @@ export class Cuboid {
 			const size: number[] = [];
 			for (let i = 0; i < this.nDimensions; i++) {
 				if (i < dimension) {
-					offset.push(target.offset[i]);
-					// max() expression here handles when the target cuboid extends behind this cuboid
-					size.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i]));
+					offset.push(Math.max(this.offset[i], target.offset[i]));
+					size.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i], target.endCorner[i] - this.endCorner[i]));
 				} else if (i === dimension) {
 					offset.push(this.offset[i]);
 					size.push(target.offset[i] - this.offset[i]);
@@ -179,9 +178,8 @@ export class Cuboid {
 			const size: number[] = [];
 			for (let i = 0; i < this.nDimensions; i++) {
 				if (i < dimension) {
-					offset.push(target.offset[i]);
-					// max() expression here handles when the target cuboid extends past this cuboid
-					size.push(target.length[i] - Math.max(0, target.endCorner[i] - this.endCorner[i]));
+					offset.push(Math.max(this.offset[i], target.offset[i]));
+					size.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i], target.endCorner[i] - this.endCorner[i]));
 				} else if (i === dimension) {
 					offset.push(target.endCorner[i]);
 					size.push(this.endCorner[i] - target.endCorner[i]);
@@ -328,12 +326,7 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 			}
 
 			// Check the newfound volume against the optimal volume
-			const newVolume = Cuboid.totalVolume(comboUncoveredCuboids);
-
-			if (combo[1]?.offset[0] === 2) {
-				console.log(combo, newVolume, optimalVolume, refUncoveredCuboids);
-			}
-			if (newVolume === optimalVolume) {
+			if (Cuboid.totalVolume(comboUncoveredCuboids) === optimalVolume) {
 				optimalCombo = combo;
 				break;
 			}

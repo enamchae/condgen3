@@ -13,63 +13,6 @@ import "jest-extended";
 	},
 }); */
 
-describe("Group:length", () => {
-	it("computes correctly", () => {
-		expect(new Group([0, 1, 2], [1, 2, 0])).toHaveProperty("length", [2, 4, 1]);
-		expect(new Group([0, 3, 2, 1], [2, 2, 2, 2])).toHaveProperty("length", [4, 4, 4, 4]);
-	});
-});
-
-describe("Cuboid.thatCovers", () => {
-	it("covers even maps", () => {
-		expect(Cuboid.thatCovers(new Karnaugh(4**5))).toEqual(new Cuboid([0, 0, 0, 0, 0], [4, 4, 4, 4, 4]));
-	});
-
-	it("covers uneven maps", () => {
-		expect(Cuboid.thatCovers(new Karnaugh(4**2 * 2))).toEqual(new Cuboid([0, 0, 0], [4, 4, 2]));
-	});
-});
-
-describe("Cuboid.fromGroup", () => {
-	it("handles contained groups", () => {
-		expect(Cuboid.forGroup(new Group([0, 0], [1, 1]))).toContainEqual(new Cuboid([0, 0], [2, 2]));
-
-		expect(Cuboid.forGroup(new Group([2, 0, 1], [0, 2, 1]))).toContainEqual(new Cuboid([2, 0, 1], [1, 4, 2]));
-	});
-
-	it("handles wrapping over 1 axis", () => {
-		{
-			const cuboids = Cuboid.forGroup(new Group([3, 0], [1, 0]));
-			expect(cuboids).toContainEqual(new Cuboid([3, 0], [1, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([0, 0], [1, 1]));
-		}
-
-		{
-			const cuboids = Cuboid.forGroup(new Group([1, 3, 3], [1, 0, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([1, 3, 3], [2, 1, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([1, 3, 0], [2, 1, 1]));
-		}
-	});
-
-	it("handles wrapping over 2 axes", () => {
-		{
-			const cuboids = Cuboid.forGroup(new Group([3, 3], [1, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([3, 3], [1, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([0, 3], [1, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([3, 0], [1, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([0, 0], [1, 1]));
-		}
-
-		{
-			const cuboids = Cuboid.forGroup(new Group([2, 3, 0, 3], [1, 1, 2, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([2, 3, 0, 3], [2, 1, 4, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([2, 0, 0, 3], [2, 1, 4, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([2, 3, 0, 0], [2, 1, 4, 1]));
-			expect(cuboids).toContainEqual(new Cuboid([2, 0, 0, 0], [2, 1, 4, 1]));
-		}
-	});
-});
-
 describe(removeRedundantGroups.name, () => {
 	it("handles unoptimizable sets: single group", () => {
 		{
