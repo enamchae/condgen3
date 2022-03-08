@@ -1,6 +1,7 @@
-import MapSet from "../util/mapset";
+import BucketMap from "../util/BucketMap";
+import { reduce } from "../util/iter";
 import {Karnaugh} from "./boolean-util";
-import {anyCombineBoolean, permute, rangeArray} from "./permute";
+import {anyCombine, anyCombineBoolean, combine, permute, rangeArray} from "./permute";
 
 export class Group {
 	/**
@@ -141,6 +142,10 @@ export class Cuboid {
 		return cuboids;
 	}
 
+	static totalVolume(cuboids: Set<Cuboid>): number {
+		return reduce(cuboids, (cumVolume, cuboid) => cumVolume + cuboid.volume(), 0);
+	}
+
 	#endCorner: number[];
 	get endCorner(): number[] {
 		return this.#endCorner ?? (this.#endCorner = this.offset.map((coord, i) => coord + this.length[i]));
@@ -211,6 +216,10 @@ export class Cuboid {
 			subcuboids: newCuboids,
 		};
 	}
+
+	volume() {
+		return this.length.reduce((volume, length) => volume * length, 1);
+	}
 }
 interface SubtractResult {
 	readonly changed: boolean;
@@ -267,53 +276,81 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 	
 	return; */
 
-	const groupsByVolume = new MapSet<number, Group>();
+	const groupsByVolume = new BucketMap<number, Group>();
 	for (const group of groups) {
 		groupsByVolume.add(group.volume, group);
 	}
 
-	const groupsSorted = [...groupsByVolume.sets()].sort((a, b) => b[0] - a[0]);
-	let uncoveredCuboids = new Set<Cuboid>([Cuboid.thatCovers(map)]);
+	const groupBucketsSorted = [...groupsByVolume.sets()].sort((a, b) => b[0] - a[0]);
+	let uncoveredCuboids = new Set([Cuboid.thatCovers(map)]);
 
-	for (const [volume, groupsOfVolume] of groupsSorted) {
-		let maximizedRemovedGroups = new Set<Group>();
-		let maximizedUncoveredCuboids = uncoveredCuboids;
+	for (const [volume, groupsOfVolume] of groupBucketsSorted) {
+		const cuboidsForGroups = new Map<Group, Cuboid[]>();
+		for (const group of groupsOfVolume) {
+			cuboidsForGroups.set(group, Cuboid.forGroup(group));
+		}
 
-		for (const permutation of permute([...groupsOfVolume])) {
-			const permRemovedGroups = new Set<Group>();
-			const permUncoveredCuboids = new Set(uncoveredCuboids);
+		// Find the optimal volume by subtracting all the groups first
+		// Optimal volume is the minimum total volume of the uncovered cuboids
+		const refUncoveredCuboids = new Set(uncoveredCuboids);
+		for (const group of groupsOfVolume) {
+			for (const groupCuboid of cuboidsForGroups.get(group)) {
+				for (const cuboid of refUncoveredCuboids) {
+					const {changed, subcuboids} = cuboid.subtract(groupCuboid);
+					if (!changed) continue;
 
-			for (const group of permutation) {
-				let atLeastOneCuboidChanged = false;
+					refUncoveredCuboids.delete(cuboid);
+					for (const subcuboid of subcuboids) {
+						refUncoveredCuboids.add(subcuboid);
+					}
+				}
+			}
+		}
+		const optimalVolume = Cuboid.totalVolume(refUncoveredCuboids);
 
-				for (const groupCuboid of Cuboid.forGroup(group)) {
-					for (const cuboid of permUncoveredCuboids) {
+		let optimalCombo: Group[];
+
+		for (const combo of anyCombine([...groupsOfVolume])) {
+			const comboUncoveredCuboids = new Set(uncoveredCuboids);
+
+			for (const group of combo) {
+				for (const groupCuboid of cuboidsForGroups.get(group)) {
+					for (const cuboid of comboUncoveredCuboids) {
 						const {changed, subcuboids} = cuboid.subtract(groupCuboid);
 						if (!changed) continue;
 			
-						atLeastOneCuboidChanged = true;
-						permUncoveredCuboids.delete(cuboid);
+						comboUncoveredCuboids.delete(cuboid);
 						for (const subcuboid of subcuboids) {
-							permUncoveredCuboids.add(subcuboid);
+							comboUncoveredCuboids.add(subcuboid);
 						}
 					}
 				}
-
-				if (atLeastOneCuboidChanged) continue;
-				permRemovedGroups.add(group);
 			}
 
-			if (permRemovedGroups.size > maximizedRemovedGroups.size) {
-				maximizedRemovedGroups = permRemovedGroups;
-				maximizedUncoveredCuboids = permUncoveredCuboids;
+			// Check the newfound volume against the optimal volume
+			const newVolume = Cuboid.totalVolume(comboUncoveredCuboids);
+
+			if (combo[1]?.offset[0] === 2) {
+				console.log(combo, newVolume, optimalVolume, refUncoveredCuboids);
+			}
+			if (newVolume === optimalVolume) {
+				optimalCombo = combo;
+				break;
 			}
 		}
 
-		// Permutation with the most removed groups has been found
-		for (const group of maximizedRemovedGroups) {
+		// Remove all groups that are not in the optimal combination
+		const removedGroups = new Set(groupsOfVolume);
+		for (const group of optimalCombo) {
+			removedGroups.delete(group);
+		}
+
+		for (const group of removedGroups) {
 			groups.delete(group);
 		}
-		uncoveredCuboids = maximizedUncoveredCuboids;
+
+		// Update the original cuboid set
+		uncoveredCuboids = refUncoveredCuboids;
 	}
 
 	return groups;

@@ -113,10 +113,10 @@ export function* combineN(nTotal: number, nSelected: number, offset: number=0): 
 	}
 }
 
-export function* combine(items: number[], nSelected: number, i: number=0): Generator<number[], void, void> {
+export function* combine<T>(items: T[], nSelected: number, i: number=0): Generator<T[], void, void> {
 	if (nSelected > items.length) throw new RangeError();
 
-	switch (items.length) {
+	switch (items.length - i) {
 		case 1:
 			if (nSelected === 0) {
 				yield [];
@@ -133,26 +133,36 @@ export function* combine(items: number[], nSelected: number, i: number=0): Gener
 	
 	// Skip the current entry
 	if (nSelected <= items.length - 1) {
-		for (const subcombo of combineN(items.length - 1, nSelected, i + 1)) {
+		for (const subcombo of combine(items, nSelected, i + 1)) {
 			yield subcombo;
 		}
 	}
 
 	// Add the current entry
 	if (nSelected > 0) {
-		for (const subcombo of combineN(items.length - 1, nSelected - 1, i + 1)) {
+		for (const subcombo of combine(items, nSelected - 1, i + 1)) {
 			yield [items[i], ...subcombo];
 		}
 	}
 }
 
+/**
+ * Generates every possible boolean array of a given length. 
+ * @param nTotal The size of the generated arrays.
+ * @yields 
+ */
 export function* anyCombineBoolean(nTotal: number) {
 	for (let i = 0; i <= nTotal; i++) {
 		yield* combineBoolean(nTotal, i);
 	}
 }
 
-export function* anyCombine(items: number[]) {
+/**
+ * Generates every subset of items (starting with smallest).
+ * @param items The items to combine.
+ * @yields 
+ */
+export function* anyCombine<T>(items: T[]): Generator<T[], void, void> {
 	for (let i = 0; i <= items.length; i++) {
 		yield* combine(items, i);
 	}

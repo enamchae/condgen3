@@ -1,7 +1,7 @@
 /**
  * Wraps a `Map<K, Set<V>>`.
  */
-export default class MapSet<K, V> {
+export default class BucketMap<K, V> {
 	private readonly map = new Map<K, Set<V>>();
 
 	#size = 0;
