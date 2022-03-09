@@ -2,7 +2,7 @@
 	<input-table>
 		<!-- <input type="number" v-model="nInputBits" @input="refreshTruthTable" /> -->
 
-		<table @change="updateExpression" class="truth-table">
+		<table class="truth-table">
 			<thead>
 				<tr>
 					<td v-for="inputIndex of range(nInputBits)" :key="inputIndex">
@@ -31,6 +31,8 @@
 	</input-table>
 
 	<side-panel>
+		<KarnaughMap :truthTable="truthTable"
+				:nInputBits="nInputBits" />
 		<output->{{expression}}</output->
 		<settings->
 			<div>
@@ -45,7 +47,7 @@
 				<button @click="clearTruthTable(true)">All 1s</button>
 			</div>
 
-			<div><input type="checkbox" v-model="usingProductOfSums" @change="updateExpression" /> <label>Compute <i>Product of Sums</i></label></div>
+			<div><input type="checkbox" v-model="usingProductOfSums" /> <label>Compute <i>Product of Sums</i></label></div>
 		</settings->
 	</side-panel>
 </template>
@@ -54,7 +56,9 @@
 import {defineComponent} from "vue";
 import {grayOrder} from "../Boolean/boolean-util";
 import {findKarnaughGroups, Group} from "../Boolean/Karnaugh";
+import {range} from "../util/iter";
 import Entry from "./Entry.vue";
+import KarnaughMap from "./KarnaughMap.vue";
 
 interface RootData {
 	nInputBits: number;
@@ -210,12 +214,10 @@ export default defineComponent({
 			for (let i = 0; i < this.truthTable.length; i++) {
 				this.truthTable[i] = toTrue;
 			}
-			this.updateExpression();
 		},
 
 		refreshTruthTable() {
 			this.repeatTruthTable();
-			this.updateExpression();
 		},
 
 		toggleBit(event: PointerEvent, index: number) {
@@ -223,8 +225,6 @@ export default defineComponent({
 			input.checked = !input.checked;
 
 			this.truthTable[index] = !this.truthTable[index];
-
-			this.updateExpression();
 		},
 
 		toggleBitIfPointerdown(event: PointerEvent, index: number) {
@@ -233,15 +233,21 @@ export default defineComponent({
 			this.toggleBit(event, index);
 		},
 
-		* range(n: number): Generator<number, void, void> {
-			for (let i = 0; i < n; i++) {
-				yield i;
-			}
+		range,
+	},
+
+	watch: {
+		truthTable: {
+			deep: true,
+			handler() {
+				this.updateExpression();
+			},
 		},
 	},
 
 	components: {
 		Entry,
+		KarnaughMap,
 	},
 
 	created() {
@@ -251,11 +257,14 @@ export default defineComponent({
 	mounted() {
 		this.updateExpression();
 
-		addEventListener("pointerdown", () => {
+		addEventListener("pointerdown", (event: PointerEvent) => {
+			if (event.button !== 0) return;
 			this.pointerDown = true;
-		});
-		addEventListener("pointerup", () => {
-			this.pointerDown = false;
+			
+			addEventListener("pointerup", (event: PointerEvent) => {
+				if (event.button !== 0) return;
+				this.pointerDown = false;
+			}, {once: true});
 		});
 	},
 });
