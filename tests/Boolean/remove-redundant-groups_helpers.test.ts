@@ -80,24 +80,61 @@ describe("Cuboid:subtract", () => {
 	});
 
 	it("handles cuboids that partially break out on 1 axis (left side)", () => {
-		const minuend = new Cuboid([2, 0], [4, 5]);
-		const subtrahend = new Cuboid([1, 1], [2, 2]);
+		{
+			const minuend = new Cuboid([2, 0], [4, 5]);
+			const subtrahend = new Cuboid([1, 1], [2, 2]);
+	
+			expect(minuend.subtract(subtrahend).subcuboids).toIncludeSameMembers([
+				new Cuboid([3, 0], [3, 5]),
+				new Cuboid([2, 0], [1, 1]),
+				new Cuboid([2, 3], [1, 2]),
+			]);
+		}
 
-		expect(minuend.subtract(subtrahend).subcuboids).toIncludeSameMembers([
-			new Cuboid([3, 0], [3, 5]),
-			new Cuboid([2, 0], [1, 1]),
-			new Cuboid([2, 3], [1, 2]),
-		]);
+		{
+			const minuend = new Cuboid([3, 2], [5, 7]);
+			const subtrahend = new Cuboid([4, 1], [2, 6]);
+	
+			expect(minuend.subtract(subtrahend).subcuboids).toIncludeSameMembers([
+				new Cuboid([3, 2], [1, 7]),
+				new Cuboid([6, 2], [2, 7]),
+				new Cuboid([4, 7], [2, 2]),
+			]);
+		}
 	});
 
 	it("handles cuboids that partially break out on 1 axis (right side)", () => {
-		const minuend = new Cuboid([2, 2], [4, 5]);
-		const subtrahend = new Cuboid([5, 3], [2, 2]);
+		{
+			const minuend = new Cuboid([2, 2], [4, 5]);
+			const subtrahend = new Cuboid([5, 3], [2, 2]);
+	
+			expect(minuend.subtract(subtrahend).subcuboids).toIncludeSameMembers([
+				new Cuboid([2, 2], [3, 5]),
+				new Cuboid([5, 2], [1, 1]),
+				new Cuboid([5, 5], [1, 2]),
+			]);
+		}
 
-		expect(minuend.subtract(subtrahend).subcuboids).toIncludeSameMembers([
-			new Cuboid([2, 2], [3, 5]),
-			new Cuboid([5, 2], [1, 1]),
-			new Cuboid([5, 5], [1, 2]),
-		]);
+		{
+			const minuend = new Cuboid([1, 2], [8, 4]);
+			const subtrahend = new Cuboid([5, 5], [2, 3]);
+	
+			expect(minuend.subtract(subtrahend).subcuboids).toIncludeSameMembers([
+				new Cuboid([1, 2], [4, 4]),
+				new Cuboid([7, 2], [2, 4]),
+				new Cuboid([5, 2], [2, 3]),
+			]);
+		}
+	});
+
+	it("handles cuboids that partially break out on 1 axis (both sides)", () => {
+		{
+			const minuend = new Cuboid([2, 2], [1, 2]);
+			const subtrahend = new Cuboid([0, 3], [4, 1]);
+	
+			expect(minuend.subtract(subtrahend).subcuboids).toIncludeSameMembers([
+				new Cuboid([2, 2], [1, 1]),
+			]);
+		}
 	});
 });

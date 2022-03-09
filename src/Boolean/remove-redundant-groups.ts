@@ -156,40 +156,40 @@ export class Cuboid {
 
 		const newLeftCuboid = (dimension: number): Cuboid => {
 			const offset: number[] = [];
-			const size: number[] = [];
+			const length: number[] = [];
 			for (let i = 0; i < this.nDimensions; i++) {
 				if (i < dimension) {
 					offset.push(Math.max(this.offset[i], target.offset[i]));
-					size.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i], target.endCorner[i] - this.endCorner[i]));
+					length.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i]) - Math.max(0, target.endCorner[i] - this.endCorner[i]));
 				} else if (i === dimension) {
 					offset.push(this.offset[i]);
-					size.push(target.offset[i] - this.offset[i]);
+					length.push(target.offset[i] - this.offset[i]);
 				} else {
 					offset.push(this.offset[i]);
-					size.push(this.length[i]);
+					length.push(this.length[i]);
 				}
 			}
 
-			return new Cuboid(offset, size);
+			return new Cuboid(offset, length);
 		};
 
 		const newRightCuboid = (dimension: number): Cuboid => {
 			const offset: number[] = [];
-			const size: number[] = [];
+			const length: number[] = [];
 			for (let i = 0; i < this.nDimensions; i++) {
 				if (i < dimension) {
 					offset.push(Math.max(this.offset[i], target.offset[i]));
-					size.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i], target.endCorner[i] - this.endCorner[i]));
+					length.push(target.length[i] - Math.max(0, this.offset[i] - target.offset[i]) - Math.max(0, target.endCorner[i] - this.endCorner[i]));
 				} else if (i === dimension) {
 					offset.push(target.endCorner[i]);
-					size.push(this.endCorner[i] - target.endCorner[i]);
+					length.push(this.endCorner[i] - target.endCorner[i]);
 				} else {
 					offset.push(this.offset[i]);
-					size.push(this.length[i]);
+					length.push(this.length[i]);
 				}
 			}
 
-			return new Cuboid(offset, size);
+			return new Cuboid(offset, length);
 		};
 
 		for (let dimension = 0; dimension < this.nDimensions; dimension++) {
@@ -302,12 +302,16 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 						refUncoveredCuboids.add(subcuboid);
 					}
 				}
+
+				// console.log(groupCuboid, refUncoveredCuboids);
+				// debugger;
 			}
 		}
 		const optimalVolume = Cuboid.totalVolume(refUncoveredCuboids);
 
 		let optimalCombo: Group[];
 
+		comboLoop:
 		for (const combo of anyCombine([...groupsOfVolume])) {
 			const comboUncoveredCuboids = new Set(uncoveredCuboids);
 
@@ -315,7 +319,7 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 				for (const groupCuboid of cuboidsForGroups.get(group)) {
 					for (const cuboid of comboUncoveredCuboids) {
 						const {changed, subcuboids} = cuboid.subtract(groupCuboid);
-						if (!changed) continue;
+						if (!changed) continue; // Any subset with a group that does not affect the cuboids is not optimal
 			
 						comboUncoveredCuboids.delete(cuboid);
 						for (const subcuboid of subcuboids) {
@@ -328,6 +332,23 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 			// Check the newfound volume against the optimal volume
 			if (Cuboid.totalVolume(comboUncoveredCuboids) === optimalVolume) {
 				optimalCombo = combo;
+				/* if (optimalVolume === 2) {console.log(combo, groupsOfVolume, refUncoveredCuboids, comboUncoveredCuboids);
+
+				const x = new Set(uncoveredCuboids);
+				for (const group of combo) {
+					for (const groupCuboid of cuboidsForGroups.get(group)) {
+						for (const cuboid of x) {
+							const {changed, subcuboids} = cuboid.subtract(groupCuboid);
+							if (!changed) continue;
+				
+							x.delete(cuboid);
+							for (const subcuboid of subcuboids) {
+								x.add(subcuboid);
+							}
+						}
+					}
+					console.log(Cuboid.totalVolume(x))
+				}} */
 				break;
 			}
 		}
