@@ -302,9 +302,6 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 						refUncoveredCuboids.add(subcuboid);
 					}
 				}
-
-				// console.log(groupCuboid, refUncoveredCuboids);
-				// debugger;
 			}
 		}
 		const optimalVolume = Cuboid.totalVolume(refUncoveredCuboids);
@@ -317,41 +314,32 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 
 			for (const group of combo) {
 				for (const groupCuboid of cuboidsForGroups.get(group)) {
+					let anyCuboidsChanged = false;
+
 					for (const cuboid of comboUncoveredCuboids) {
 						const {changed, subcuboids} = cuboid.subtract(groupCuboid);
-						if (!changed) continue; // Any subset with a group that does not affect the cuboids is not optimal
+						if (!changed) continue;
 			
 						comboUncoveredCuboids.delete(cuboid);
 						for (const subcuboid of subcuboids) {
 							comboUncoveredCuboids.add(subcuboid);
 						}
+
+						anyCuboidsChanged = true;
 					}
+
+					if (!anyCuboidsChanged) continue comboLoop; // Any subset with a group that does not affect the cuboids is not optimal
 				}
 			}
 
 			// Check the newfound volume against the optimal volume
 			if (Cuboid.totalVolume(comboUncoveredCuboids) === optimalVolume) {
 				optimalCombo = combo;
-				/* if (optimalVolume === 2) {console.log(combo, groupsOfVolume, refUncoveredCuboids, comboUncoveredCuboids);
-
-				const x = new Set(uncoveredCuboids);
-				for (const group of combo) {
-					for (const groupCuboid of cuboidsForGroups.get(group)) {
-						for (const cuboid of x) {
-							const {changed, subcuboids} = cuboid.subtract(groupCuboid);
-							if (!changed) continue;
-				
-							x.delete(cuboid);
-							for (const subcuboid of subcuboids) {
-								x.add(subcuboid);
-							}
-						}
-					}
-					console.log(Cuboid.totalVolume(x))
-				}} */
 				break;
 			}
 		}
+
+		optimalCombo ??= [...groupsOfVolume]; // Necessary?
 
 		// Remove all groups that are not in the optimal combination
 		const removedGroups = new Set(groupsOfVolume);

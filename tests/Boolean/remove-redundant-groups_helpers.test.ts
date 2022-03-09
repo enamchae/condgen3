@@ -127,7 +127,7 @@ describe("Cuboid:subtract", () => {
 		}
 	});
 
-	it("handles cuboids that partially break out on 1 axis (both sides)", () => {
+	it("handles cuboids that break out on 1 axis (both sides)", () => {
 		{
 			const minuend = new Cuboid([2, 2], [1, 2]);
 			const subtrahend = new Cuboid([0, 3], [4, 1]);
