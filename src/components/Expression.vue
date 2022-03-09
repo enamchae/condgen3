@@ -1,64 +1,25 @@
 <template>
-	<output->{{expression}}</output->
+	<expression->
+		<!-- Empty sum or product -->
+		<span class="part" v-if="groups.size === 0">{{usingProductOfSums ? "1" : "0"}}</span>
+
+		<template v-else v-for="(part, index) of parts" :key="index">
+			<ExpressionPart :part="part"
+					:usingProductOfSums="usingProductOfSums"
+					:text="partText(part)"
+					@focusGroup="group => $emit('focusGroup', group)" />
+
+			<span class="separator" v-if="!usingProductOfSums && index < parts.length - 1"> + </span>
+		</template>
+	</expression->
 </template>
 
-
-<script lang="ts">
+<script lang="tsx">
 import {defineComponent, PropType} from "vue";
 import {Group} from "../Boolean/Karnaugh";
 import {grayOrder} from "../Boolean/boolean-util";
-
-
-const generateExpression = (groups: Set<Group>, nInputBits: number, usingProductOfSums: boolean=false) => {
-	const parts: number[][] = [];
-
-	for (const group of groups) {
-		const grays = group.offset.map(coord => grayOrder[coord]);
-
-		const dependents = interpretGroup(group, grays, nInputBits);
-		parts.push(dependents);
-	}
-
-	if (!usingProductOfSums) {
-
-		if (parts.length === 0) { // Empty sum
-			return "0"
-		}
-
-		return parts.map(part => {
-			if (part.length === 0) { // Empty product
-				return "1";
-			}
-			return part.map(factor => {
-				const letterId = Math.floor(factor / 2);
-				const inverted = factor % 2 !== 0;
-
-				return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
-			}).join("");
-		}).join(" + ");
-
-	} else {
-
-		if (parts.length === 0) { // Empty product
-			return "1"
-		}
-
-		return parts.map(part => {
-			if (part.length === 0) { // Empty sum
-				return "0";
-			}
-
-			const string = part.map(factor => {
-				const letterId = Math.floor(factor / 2);
-				const inverted = factor % 2 !== 0;
-
-				return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "" : "′"}`; // Inverted in product of sums
-			}).join(" + ");
-
-			return part.length === 1 || parts.length === 1 ? string : `(${string})`;
-		}).join("");
-	}
-};
+import ExpressionPart from "./ExpressionPart.vue";
+import Part from "./Part";
 
 const interpretGroup = (group: Group, grays: number[], nInputBits: number): number[] => {
 	const isEven = nInputBits % 2 === 0; // Used to determine whether an axis only has one variable
@@ -120,25 +81,121 @@ export default defineComponent({
 
 	data: () => ({
 		expression: "",
+
+		parts: [] as Part[],
 	}),
 
 	methods: {
-		generateExpression() {
+
+		/* generateExpression() {
+			this.generateParts();
+
 			if (!this.usingProductOfSums) {
-				this.expression = generateExpression(this.groups, this.nInputBits);
+
+				if (this.parts.length === 0) { // Empty sum
+					return "0"
+				}
+
+				return this.parts.map(part => {
+					if (part.size === 0) { // Empty product
+						return "1";
+					}
+					return part.map(factor => {
+						const letterId = Math.floor(factor / 2);
+						const inverted = factor % 2 !== 0;
+
+						return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
+					}).join("");
+				}).join(" + ");
+
 			} else {
-				this.expression = generateExpression(this.groups, this.nInputBits, true);
+
+				if (this.parts.length === 0) { // Empty product
+					return "1"
+				}
+
+				return this.parts.map(part => {
+					if (part.size === 0) { // Empty sum
+						return "0";
+					}
+
+					const string = part.map(factor => {
+						const letterId = Math.floor(factor / 2);
+						const inverted = factor % 2 !== 0;
+
+						return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "" : "′"}`; // Inverted in product of sums
+					}).join(" + ");
+
+					return part.length === 1 || this.parts.length === 1 ? string : `(${string})`;
+				}).join("");
 			}
-		}
+		}, */
+
+		partText(part: Part) {
+			if (!this.usingProductOfSums) {
+
+				if (part.size === 0) { // Empty product
+					return "1";
+				}
+				return part.dependents.map(factor => {
+					const letterId = Math.floor(factor / 2);
+					const inverted = factor % 2 !== 0;
+
+					return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "′" : ""}`;
+				}).join("");
+
+			} else {
+				
+				if (part.size === 0) { // Empty sum
+					return "0";
+				}
+
+				const string = part.dependents.map(factor => {
+					const letterId = Math.floor(factor / 2);
+					const inverted = factor % 2 !== 0;
+
+					return `${String.fromCharCode(letterId + "A".charCodeAt(0))}${inverted ? "" : "′"}`; // Inverted in product of sums
+				}).join(" + ");
+
+				return part.dependents.length === 1 || this.parts.length === 1 ? string : `(${string})`;
+
+			}
+		},
+
+		generateParts() {
+			const parts: Part[] = [];
+
+			for (const group of this.groups) {
+				const grays = group.offset.map(coord => grayOrder[coord]);
+
+				const dependents = interpretGroup(group, grays, this.nInputBits);
+				parts.push(new Part(group, dependents));
+			}
+
+			this.parts = parts;
+		},
 	},
 
 	watch: {
 		groups() {
-			this.generateExpression();
+			this.generateParts();
 		},
+		nInputBits() {
+			this.generateParts();
+		},
+		usingProductOfSums() {
+			this.generateParts();
+		},
+	},
+
+	components: {
+		ExpressionPart,
 	},
 });
 </script>
 
 <style lang="scss" scoped>
+:deep(.separator) {
+	color: #0000007f;
+}
 </style>

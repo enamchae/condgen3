@@ -4,7 +4,7 @@
 
 <script>
 import {defineComponent} from "vue";
-import converterMixin from "./converterMixin.js";
+import converterMixin from "./converterMixin";
 
 const acceptAlways = () => true;
 

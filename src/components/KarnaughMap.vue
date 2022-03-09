@@ -22,18 +22,18 @@
 					fill="none" />
 
 			<g id="map-groups" mask="url(#groups-mask)" v-if="!disabled">
-				<g class="group" v-for="(group, index) of groups" :key="index">
+				<g :class="['group', {unfocused: !groupIsFocused(group)}]" v-for="(group, index) of groups" :key="index">
 					<g v-for="(combo, index2) of wrappingCombos(group)" :key="index2">
-						<rect :x="(group.offset[0] - (combo[0] ? 4 : 0)) * CELL_SIZE"
+						<rect :x="((group.offset[0] ?? 0) - (combo[0] ? 4 : 0)) * CELL_SIZE"
 								:y="((group.offset[1] ?? 0) - (combo[1] ? 4 : 0)) * CELL_SIZE"
-								:width="2**group.size[0] * CELL_SIZE"
+								:width="2**(group.size[0] ?? 0) * CELL_SIZE"
 								:height="2**(group.size[1] ?? 0) * CELL_SIZE"
 								fill="none"
 								:stroke="groupColor(group)"
 								stroke-width="4" />
-						<rect :x="(group.offset[0] - (combo[0] ? 4 : 0)) * CELL_SIZE + 8"
+						<rect :x="((group.offset[0] ?? 0) - (combo[0] ? 4 : 0)) * CELL_SIZE + 8"
 								:y="((group.offset[1] ?? 0) - (combo[1] ? 4 : 0)) * CELL_SIZE + 8"
-								:width="2**group.size[0] * CELL_SIZE - 16"
+								:width="2**(group.size[0] ?? 0) * CELL_SIZE - 16"
 								:height="2**(group.size[1] ?? 0) * CELL_SIZE - 16"
 								:fill="groupColor(group, 0.375)" />
 					</g>
@@ -43,7 +43,7 @@
 					<rect x="-2"
 							y="-2"
 							:width="2**Math.min(nInputBits, 2) * CELL_SIZE + 4"
-							:height="2**Math.min(nInputBits - 2, 2) * CELL_SIZE + 4"
+							:height="2**Math.max(0, Math.min(nInputBits - 2, 2)) * CELL_SIZE + 4"
 							fill="#fff" />
 				</mask>
 			</g>
@@ -84,6 +84,7 @@ export default defineComponent({
 			type: Array as PropType<boolean[]>,
 		},
 		nInputBits: Number,
+		focusedGroup: Group,
 	},
 
 	data: () => (<KarnaughMapData>{
@@ -103,7 +104,7 @@ export default defineComponent({
 		},
 
 		groupColor(group: Group, alpha: number=0.5) {
-			return `rgba(${group.offset[0] * 128 / 3 + 63}, ${(group.offset[1] ?? 0) * 128 / 3  + 63}, 255, ${alpha})`;
+			return `rgba(${(group.offset[0] ?? 0) * 128 / 3 + 63}, ${(group.offset[1] ?? 0) * 128 / 3  + 63}, 255, ${alpha})`;
 		},
 
 		* wrappingCombos(group: Group): Generator<boolean[], void, void> {
@@ -121,6 +122,10 @@ export default defineComponent({
 				}
 				yield shiftedAxes;
 			}
+		},
+
+		groupIsFocused(group: Group) {
+			return !this.focusedGroup || group === this.focusedGroup;
 		},
 
 		take,
@@ -181,6 +186,12 @@ svg {
 
 		.group {
 			mix-blend-mode: multiply;
+
+			transition: opacity 0.1s ease;
+
+			&.unfocused {
+				opacity: 0.1;
+			}
 		}
 	}
 

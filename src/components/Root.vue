@@ -33,10 +33,16 @@
 	<side-panel>
 		<KarnaughMap :truthTable="truthTable"
 				:nInputBits="nInputBits"
-				:groups="groups" />
-		<Expression :groups="groups"
-				:nInputBits="nInputBits"
-				:usingProductOfSums="usingProductOfSums" />
+				:groups="groups"
+				:focusedGroup="focusedGroup" />
+
+		<output->
+			<Expression :groups="groups"
+					:nInputBits="nInputBits"
+					:usingProductOfSums="usingProductOfSums"
+					@focusGroup="setFocusedGroup" />
+		</output->
+
 		<settings->
 			<div>
 				<Entry v-model="nInputBits"
@@ -72,8 +78,9 @@ interface RootData {
 	usingProductOfSums: boolean;
 
 	pointerDown: boolean;
-
 	groups: Set<Group>;
+
+	focusedGroup: Group;
 
 	readonly N_MAX_INPUTS: number;
 }
@@ -90,6 +97,7 @@ export default defineComponent({
 		pointerDown: false,
 
 		groups: null,
+		focusedGroup: null,
 
 		N_MAX_INPUTS: 8,
 	}),
@@ -143,6 +151,10 @@ export default defineComponent({
 			if (!this.pointerDown) return;
 
 			this.toggleBit(event, index);
+		},
+
+		setFocusedGroup(group: Group) {
+			this.focusedGroup = group;
 		},
 
 		range,
@@ -280,6 +292,7 @@ output- {
 		
 	display: flex;
 	align-items: center;
+	flex-flow: wrap;
 }
 
 settings- {
