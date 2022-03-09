@@ -48,11 +48,12 @@
 				</mask>
 			</g>
 
-			<g transform="translate(20, 20)" id="map-data">
+			<g id="map-data" transform="translate(20, 20)">
 				<g v-for="(bit, index) of take(truthTable, 16)" :key="index"
 						:transform="`translate(${bitOffset(index)[0] * CELL_SIZE}, ${bitOffset(index)[1] * CELL_SIZE})`"
 						:class="{not: !bit}"
-						@pointerdown="toggleBit($event, index)">
+						@pointerdown="toggleBit($event, index)"
+						@pointerenter="toggleBitIfPointerdown($event, index)">
 					<rect transform="translate(-20, -20)" :width="CELL_SIZE" :height="CELL_SIZE" fill="#0000" />
 					<text>{{bit ? "1" : "0"}}</text>
 				</g>
@@ -68,6 +69,8 @@ import {Group} from "../Boolean/Karnaugh";
 import {grayOrder} from "../Boolean/boolean-util";
 import {take} from "../util/iter";
 import {anyCombineBoolean} from "../Boolean/permute";
+import {groupColor} from "./util";
+import draggerMixin from "./draggerMixin";
 
 interface KarnaughMapData {
 	readonly CELL_SIZE: number;
@@ -75,6 +78,8 @@ interface KarnaughMapData {
 
 export default defineComponent({
 	name: "KarnaughMap",
+	
+	mixins: [draggerMixin],
 
 	props: {
 		groups: {
@@ -98,14 +103,12 @@ export default defineComponent({
 			return [x, y];
 		},
 
-		toggleBit(event: PointerEvent, index: number) {
+		/* toggleBit(event: PointerEvent, index: number) {
 			if (event.button !== 0) return;
 			this.truthTable[index] = !this.truthTable[index];
-		},
+		}, */
 
-		groupColor(group: Group, alpha: number=0.5) {
-			return `rgba(${(group.offset[0] ?? 0) * 128 / 3 + 63}, ${(group.offset[1] ?? 0) * 128 / 3  + 63}, 255, ${alpha})`;
-		},
+		groupColor,
 
 		* wrappingCombos(group: Group): Generator<boolean[], void, void> {
 			const wrappedDimensions: number[] = [];
@@ -150,6 +153,10 @@ svg {
 	text {
 		text-anchor: middle;
 		font-size: 1em;
+	}
+	
+	:not(#horizontal-axis) text {
+		transform: translateY(0.5ch);
 	}
 
 	g.axis-label {

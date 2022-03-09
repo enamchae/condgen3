@@ -71,13 +71,13 @@ import {range} from "../util/iter";
 import Entry from "./Entry.vue";
 import KarnaughMap from "./KarnaughMap.vue";
 import Expression from "./Expression.vue";
+import draggerMixin from "./draggerMixin";
 
 interface RootData {
 	nInputBits: number;
 	truthTable: boolean[];
 	usingProductOfSums: boolean;
 
-	pointerDown: boolean;
 	groups: Set<Group>;
 
 	focusedGroup: Group;
@@ -88,13 +88,13 @@ interface RootData {
 export default defineComponent({
 	name: "Root",
 
+	mixins: [draggerMixin],
+
 	data: () => (<RootData>{
 		nInputBits: 2,
 		truthTable: [],
 
 		usingProductOfSums: false,
-
-		pointerDown: false,
 
 		groups: null,
 		focusedGroup: null,
@@ -140,19 +140,6 @@ export default defineComponent({
 			this.repeatTruthTable();
 		},
 
-		toggleBit(event: PointerEvent, index: number) {
-			const input = event.currentTarget as HTMLInputElement;
-			input.checked = !input.checked;
-
-			this.truthTable[index] = !this.truthTable[index];
-		},
-
-		toggleBitIfPointerdown(event: PointerEvent, index: number) {
-			if (!this.pointerDown) return;
-
-			this.toggleBit(event, index);
-		},
-
 		setFocusedGroup(group: Group) {
 			this.focusedGroup = group;
 		},
@@ -180,21 +167,11 @@ export default defineComponent({
 	},
 
 	created() {
-		this.truthTable = Array(this.truthTableLength).fill(false);
+		this.truthTable = [...Array(this.truthTableLength)].map(() => Math.random() < 0.5);
 	},
 
 	mounted() {
 		this.updateGroups();
-
-		addEventListener("pointerdown", (event: PointerEvent) => {
-			if (event.button !== 0) return;
-			this.pointerDown = true;
-			
-			addEventListener("pointerup", (event: PointerEvent) => {
-				if (event.button !== 0) return;
-				this.pointerDown = false;
-			}, {once: true});
-		});
 	},
 });
 </script>

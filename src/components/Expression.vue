@@ -1,7 +1,7 @@
 <template>
 	<expression->
 		<!-- Empty sum or product -->
-		<span class="part" v-if="groups.size === 0">{{usingProductOfSums ? "1" : "0"}}</span>
+		<span class="part empty" v-if="groups.size === 0">{{usingProductOfSums ? "1" : "0"}}</span>
 
 		<template v-else v-for="(part, index) of parts" :key="index">
 			<ExpressionPart :part="part"
@@ -195,7 +195,19 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-:deep(.separator) {
-	color: #0000007f;
+expression- {
+	cursor: default;
+
+	.part:not(.empty) {
+		cursor: help;
+	}
+
+	.part.empty {
+		color: #000000bf;
+	}
+
+	:deep(.separator) {
+		color: #0000007f;
+	}
 }
 </style>
