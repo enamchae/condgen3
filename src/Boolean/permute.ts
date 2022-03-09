@@ -162,8 +162,8 @@ export function* anyCombineBoolean(nTotal: number) {
  * @param items The items to combine.
  * @yields 
  */
-export function* anyCombine<T>(items: T[]): Generator<T[], void, void> {
-	for (let i = 0; i <= items.length; i++) {
+export function* anyCombine<T>(items: T[], rStart: number=0, rEnd: number=items.length): Generator<T[], void, void> {
+	for (let i = rStart; i <= rEnd; i++) {
 		yield* combine(items, i);
 	}
 }

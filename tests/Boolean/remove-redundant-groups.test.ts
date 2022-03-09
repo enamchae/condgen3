@@ -170,5 +170,31 @@ describe(removeRedundantGroups.name, () => {
 						new Group([1, 2], [1, 1]),
 					]);
 		}
+
+		/* {
+			const map = Karnaugh.withNDimensions(2);
+
+			// █ █ █ █
+			// █ . . █
+			// █ . . █
+			// . █ █ █
+
+			const groups = new Set([
+				new Group([0, 0], [2, 0]), // ✓
+				new Group([3, 0], [0, 2]), // ✓
+				new Group([3, 0], [1, 1]),
+				new Group([3, 1], [1, 1]), // ✓
+				new Group([1, 3], [1, 1]), // ✓
+				new Group([2, 3], [1, 1]),
+			]);
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([
+						new Group([0, 0], [2, 0]),
+						new Group([3, 0], [0, 2]),
+						new Group([3, 1], [1, 1]),
+						new Group([1, 3], [1, 1]),
+					]);
+		} */
 	});
 });

@@ -1,7 +1,7 @@
 import BucketMap from "../util/BucketMap";
 import { reduce } from "../util/iter";
 import {Karnaugh} from "./boolean-util";
-import {anyCombine, anyCombineBoolean, combine, permute, rangeArray} from "./permute";
+import {anyCombine, anyCombineBoolean} from "./permute";
 
 export class Group {
 	/**
@@ -311,15 +311,15 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 		}
 		const optimalVolume = Cuboid.totalVolume(refUncoveredCuboids);
 
-		let optimalCombo: Group[];
+		let optimalCombo = [...groupsOfVolume];
 
-		comboLoop:
-		for (const combo of anyCombine([...groupsOfVolume])) {
+		// comboLoop:
+		for (const combo of anyCombine([...groupsOfVolume], 1, groupsOfVolume.size - 1)) {
 			const comboUncoveredCuboids = new Set(uncoveredCuboids);
 
 			for (const group of combo) {
 				for (const groupCuboid of cuboidsForGroups.get(group)) {
-					let anyCuboidsChanged = false;
+					// let anyCuboidsChanged = false;
 
 					for (const cuboid of comboUncoveredCuboids) {
 						const {changed, subcuboids} = cuboid.subtract(groupCuboid);
@@ -330,10 +330,10 @@ export const removeRedundantGroups = (groups: Set<Group>, map: Karnaugh) => {
 							comboUncoveredCuboids.add(subcuboid);
 						}
 
-						anyCuboidsChanged = true;
+						// anyCuboidsChanged = true;
 					}
 
-					if (!anyCuboidsChanged) continue comboLoop; // Any subset with a group that does not affect the cuboids is not optimal
+					// if (!anyCuboidsChanged) continue comboLoop; // Any subset with a group that does not affect the cuboids is not optimal
 				}
 			}
 
