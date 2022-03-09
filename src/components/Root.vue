@@ -19,8 +19,11 @@
 						{{index >> inputIndex & 0b1}}
 					</td>
 
-					<td>
-						<input type="checkbox" v-model="truthTable[index]" />
+					<td @pointerenter="toggleBitIfPointerdown($event, index)">
+						<input type="checkbox"
+								v-model="truthTable[index]"
+								@click.prevent
+								@pointerdown="toggleBit($event, index)" />
 					</td>
 				</tr>
 			</tbody>
@@ -37,9 +40,12 @@
 				<label>Input variables</label>
 			</div>
 
-			<button @click="clearTruthTable">Clear</button>
+			<div>
+				<button @click="clearTruthTable(false)">All 0s</button>
+				<button @click="clearTruthTable(true)">All 1s</button>
+			</div>
 
-			<div><input type="checkbox" v-model="usingProductOfSums" @input="updateExpression" /> <label>Compute <i>Product of Sums</i></label></div>
+			<div><input type="checkbox" v-model="usingProductOfSums" @change="updateExpression" /> <label>Compute <i>Product of Sums</i></label></div>
 		</settings->
 	</side-panel>
 </template>
@@ -165,6 +171,8 @@ export default defineComponent({
 
 		expression: "",
 
+		pointerDown: false,
+
 		N_MAX_INPUTS: 8,
 	}),
 
@@ -198,9 +206,9 @@ export default defineComponent({
 			this.truthTable = truthTable;
 		},
 
-		clearTruthTable() {
+		clearTruthTable(toTrue: boolean=true) {
 			for (let i = 0; i < this.truthTable.length; i++) {
-				this.truthTable[i] = false;
+				this.truthTable[i] = toTrue;
 			}
 			this.updateExpression();
 		},
@@ -208,6 +216,21 @@ export default defineComponent({
 		refreshTruthTable() {
 			this.repeatTruthTable();
 			this.updateExpression();
+		},
+
+		toggleBit(event: PointerEvent, index: number) {
+			const input = event.currentTarget as HTMLInputElement;
+			input.checked = !input.checked;
+
+			this.truthTable[index] = !this.truthTable[index];
+
+			this.updateExpression();
+		},
+
+		toggleBitIfPointerdown(event: PointerEvent, index: number) {
+			if (!this.pointerDown) return;
+
+			this.toggleBit(event, index);
 		},
 
 		* range(n: number): Generator<number, void, void> {
@@ -227,6 +250,13 @@ export default defineComponent({
 
 	mounted() {
 		this.updateExpression();
+
+		addEventListener("pointerdown", () => {
+			this.pointerDown = true;
+		});
+		addEventListener("pointerup", () => {
+			this.pointerDown = false;
+		});
 	},
 });
 </script>
@@ -281,6 +311,8 @@ th {
 	border-collapse: collapse;
 	text-align: center;
 
+	user-select: none;
+
 	> thead {
 		position: sticky;
 		top: 0;
@@ -329,9 +361,8 @@ settings- {
 	flex-flow: column;
 	align-items: start;
 	gap: .5em;
-}
 
-settings- {
+
 	label {
 		margin-left: .5em;
 	}
