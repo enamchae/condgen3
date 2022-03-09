@@ -74,14 +74,23 @@ export class Group {
 		return false;
 	}
 
-	#length: number[];
-	get length() {
-		return this.#length ?? (this.#length = this.size.map(size => 2**size));
+	getWrappedDimensions() {
+		const wrappedDimensions: number[] = [];
+		for (let dimension = 0; dimension < this.nDimensions; dimension++) {
+			if (this.endCorner[dimension] <= 4) continue;
+			wrappedDimensions.push(dimension);
+		}
+		return wrappedDimensions;
 	}
 
-	#endCorner: number[];
+	private _length: number[]; // Switched from private fields due to Vue failing to support them
+	get length() {
+		return this._length ?? (this._length = this.size.map(size => 2**size));
+	}
+
+	private _endCorner: number[];
 	get endCorner() {
-		return this.#endCorner ?? (this.#endCorner = this.offset.map((coord, i) => coord + this.length[i]));
+		return this._endCorner ?? (this._endCorner = this.offset.map((coord, i) => coord + this.length[i]));
 	}
 }
 
@@ -113,11 +122,7 @@ export class Cuboid {
 	 */
 	static forGroup(group: Group): Cuboid[] {
 		// Find all groups in which this group wraps
-		const wrappedDimensions = [];
-		for (let i = 0; i < group.nDimensions; i++) {
-			if (group.endCorner[i] <= 4) continue;
-			wrappedDimensions.push(i);
-		}
+		const wrappedDimensions = group.getWrappedDimensions();
 
 		if (wrappedDimensions.length === 0) {
 			return [new Cuboid(group.offset, group.length)];

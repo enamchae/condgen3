@@ -32,7 +32,8 @@
 
 	<side-panel>
 		<KarnaughMap :truthTable="truthTable"
-				:nInputBits="nInputBits" />
+				:nInputBits="nInputBits"
+				:groups="groups" />
 		<Expression :groups="groups"
 				:nInputBits="nInputBits"
 				:usingProductOfSums="usingProductOfSums" />
@@ -49,7 +50,10 @@
 				<button @click="clearTruthTable(true)">All 1s</button>
 			</div>
 
-			<div><input type="checkbox" v-model="usingProductOfSums" /> <label>Compute <i>Product of Sums</i></label></div>
+			<div>
+				<input type="checkbox" v-model="usingProductOfSums" id="compute-product-input" />
+				<label for="compute-product-input">Compute <i>Product of Sums</i></label>
+				</div>
 		</settings->
 	</side-panel>
 </template>

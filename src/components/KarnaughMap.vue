@@ -1,31 +1,61 @@
 <template>
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -10 225 220"
 			:class="{disabled}">
-		<rect x="40" y="40" width="160" height="160"
-				stroke="currentcolor"
-				fill="#0000" />
 
 		<g transform="translate(60, 20)" class="axis-label" id="horizontal-axis">
 			<text x="0"><tspan class="not">A′B′</tspan></text>
-			<text x="40">A<tspan class="not">B′</tspan></text>
-			<text x="80">AB</text>
-			<text x="120"><tspan class="not">A′</tspan>B</text>
+			<text :x="CELL_SIZE">A<tspan class="not">B′</tspan></text>
+			<text :x="CELL_SIZE * 2">AB</text>
+			<text :x="CELL_SIZE * 3"><tspan class="not">A′</tspan>B</text>
 		</g>
 
 		<g transform="translate(20, 60)" class="axis-label" id="vertical-axis">
 			<text y="0"><tspan class="not">C′D′</tspan></text>
-			<text y="40">C<tspan class="not">D′</tspan></text>
-			<text y="80">CD</text>
-			<text y="120"><tspan class="not">C′</tspan>D</text>
+			<text :y="CELL_SIZE">C<tspan class="not">D′</tspan></text>
+			<text :y="CELL_SIZE * 2">CD</text>
+			<text :y="CELL_SIZE * 3"><tspan class="not">C′</tspan>D</text>
 		</g>
 
-		<g transform="translate(60, 60)" id="map-data">
-			<g v-for="(bit, index) of take(truthTable, 16)" :key="index"
-					:transform="`translate(${bitOffset(index)[0] * 40}, ${bitOffset(index)[1] * 40})`"
-					:class="{not: !bit}"
-					@pointerdown="toggleBit($event, index)">
-				<rect transform="translate(-20, -20)" width="40" height="40" fill="#0000" />
-				<text>{{bit ? "1" : "0"}}</text>
+		<g transform="translate(40, 40)" id="map">
+			<rect width="160" height="160"
+					stroke="currentcolor"
+					fill="none" />
+
+			<g id="map-groups" mask="url(#groups-mask)" v-if="!disabled">
+				<g class="group" v-for="(group, index) of groups" :key="index">
+					<g v-for="(combo, index2) of wrappingCombos(group)" :key="index2">
+						<rect :x="(group.offset[0] - (combo[0] ? 4 : 0)) * CELL_SIZE"
+								:y="((group.offset[1] ?? 0) - (combo[1] ? 4 : 0)) * CELL_SIZE"
+								:width="2**group.size[0] * CELL_SIZE"
+								:height="2**(group.size[1] ?? 0) * CELL_SIZE"
+								fill="none"
+								:stroke="groupColor(group)"
+								stroke-width="4" />
+						<rect :x="(group.offset[0] - (combo[0] ? 4 : 0)) * CELL_SIZE + 8"
+								:y="((group.offset[1] ?? 0) - (combo[1] ? 4 : 0)) * CELL_SIZE + 8"
+								:width="2**group.size[0] * CELL_SIZE - 16"
+								:height="2**(group.size[1] ?? 0) * CELL_SIZE - 16"
+								:fill="groupColor(group, 0.375)" />
+					</g>
+				</g>
+
+				<mask id="groups-mask">
+					<rect x="-2"
+							y="-2"
+							:width="2**Math.min(nInputBits, 2) * CELL_SIZE + 4"
+							:height="2**Math.min(nInputBits - 2, 2) * CELL_SIZE + 4"
+							fill="#fff" />
+				</mask>
+			</g>
+
+			<g transform="translate(20, 20)" id="map-data">
+				<g v-for="(bit, index) of take(truthTable, 16)" :key="index"
+						:transform="`translate(${bitOffset(index)[0] * CELL_SIZE}, ${bitOffset(index)[1] * CELL_SIZE})`"
+						:class="{not: !bit}"
+						@pointerdown="toggleBit($event, index)">
+					<rect transform="translate(-20, -20)" :width="CELL_SIZE" :height="CELL_SIZE" fill="#0000" />
+					<text>{{bit ? "1" : "0"}}</text>
+				</g>
 			</g>
 		</g>
 	</svg>
@@ -33,19 +63,31 @@
 
 
 <script lang="ts">
-import {defineComponent} from "vue";
+import {defineComponent, PropType} from "vue";
+import {Group} from "../Boolean/Karnaugh";
 import {grayOrder} from "../Boolean/boolean-util";
 import {take} from "../util/iter";
+import {anyCombineBoolean} from "../Boolean/permute";
+
+interface KarnaughMapData {
+	readonly CELL_SIZE: number;
+}
 
 export default defineComponent({
 	name: "KarnaughMap",
 
 	props: {
-		truthTable: Array,
+		groups: {
+			type: Set as PropType<Set<Group>>,
+		},
+		truthTable: {
+			type: Array as PropType<boolean[]>,
+		},
 		nInputBits: Number,
 	},
 
-	data: () => ({
+	data: () => (<KarnaughMapData>{
+		CELL_SIZE: 40,
 	}),
 
 	methods: {
@@ -58,6 +100,27 @@ export default defineComponent({
 		toggleBit(event: PointerEvent, index: number) {
 			if (event.button !== 0) return;
 			this.truthTable[index] = !this.truthTable[index];
+		},
+
+		groupColor(group: Group, alpha: number=0.5) {
+			return `rgba(${group.offset[0] * 128 / 3 + 63}, ${(group.offset[1] ?? 0) * 128 / 3  + 63}, 255, ${alpha})`;
+		},
+
+		* wrappingCombos(group: Group): Generator<boolean[], void, void> {
+			const wrappedDimensions: number[] = [];
+			for (let dimension = 0; dimension < group.nDimensions; dimension++) {
+				if (group.endCorner[dimension] <= 4) continue;
+				wrappedDimensions.push(dimension);
+			}
+			
+			for (const combo of anyCombineBoolean(wrappedDimensions.length)) {
+				const shiftedAxes = [false, false];
+				for (let i = 0; i < wrappedDimensions.length; i++) {
+					const dimension = wrappedDimensions[i];
+					shiftedAxes[dimension] = combo[i];
+				}
+				yield shiftedAxes;
+			}
 		},
 
 		take,
@@ -110,6 +173,14 @@ svg {
 			text {
 				fill: var(--col-not);
 			}
+		}
+	}
+
+	g#map-groups {
+		pointer-events: none;
+
+		.group {
+			mix-blend-mode: multiply;
 		}
 	}
 
