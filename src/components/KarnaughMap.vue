@@ -52,7 +52,7 @@
 				<g v-for="(bit, index) of take(truthTable, 16)" :key="index"
 						:transform="`translate(${bitOffset(index)[0] * CELL_SIZE}, ${bitOffset(index)[1] * CELL_SIZE})`"
 						:class="{not: !bit}"
-						@pointerdown="toggleBit($event, index)"
+						@pointerdown="toggleBitIfLmb($event, index)"
 						@pointerenter="toggleBitIfPointerdown($event, index)">
 					<rect transform="translate(-20, -20)" :width="CELL_SIZE" :height="CELL_SIZE" fill="#0000" />
 					<text>{{bit ? "1" : "0"}}</text>

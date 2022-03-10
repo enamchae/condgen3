@@ -23,7 +23,7 @@
 						<input type="checkbox"
 								v-model="truthTable[index]"
 								@click.prevent
-								@pointerdown="toggleBit($event, index)" />
+								@pointerdown="toggleBitIfLmb($event, index)" />
 					</td>
 				</tr>
 			</tbody>
@@ -54,6 +54,7 @@
 			<div>
 				<button @click="clearTruthTable(false)">All 0s</button>
 				<button @click="clearTruthTable(true)">All 1s</button>
+				<button @click="invertTruthTable">Invert</button>
 			</div>
 
 			<div>
@@ -133,6 +134,12 @@ export default defineComponent({
 		clearTruthTable(toTrue: boolean=true) {
 			for (let i = 0; i < this.truthTable.length; i++) {
 				this.truthTable[i] = toTrue;
+			}
+		},
+
+		invertTruthTable() {
+			for (let i = 0; i < this.truthTable.length; i++) {
+				this.truthTable[i] = !this.truthTable[i];
 			}
 		},
 
@@ -239,7 +246,7 @@ th {
 		color: #358;
 
 		&.positive {
-			background: #aee;
+			background: #8888ff7f;
 		}
 	}
 

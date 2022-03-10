@@ -13,7 +13,11 @@ export default {
 
 		toggleBitIfPointerdown(event: PointerEvent, index: number) {
 			if (!this.pointerDown) return;
-
+			this.toggleBit(event, index);
+		},
+	
+		toggleBitIfLmb(event: PointerEvent, index: number) {
+			if (event.button !== 0) return;
 			this.toggleBit(event, index);
 		},
 	},
