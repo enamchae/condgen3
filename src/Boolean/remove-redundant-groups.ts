@@ -39,12 +39,12 @@ export class Group {
 
 		const result = 
 				// Is the offset of the container group less than the offset of this group in every direction?
-				target.offset.every((coord, i) => coord >= this.offset[i])
+				target.offset.every((coord, dimension) => this.offset[dimension] <= coord)
 
 				// Does the container group extend past this group in every direction?
-				&& target.offset.every((coord, i) =>
-						coord + 2**target.size[i] <= this.offset[i] + 2**this.size[i]
-						|| this.size[i] === 2 // Container size is 4 and wraps around infinitely
+				&& target.offset.every((coord, dimension) =>
+						target.endCorner[dimension] <= this.endCorner[dimension]
+						|| this.size[dimension] === 2 // Container size is 4 and wraps around infinitely
 						// (handles case where container is size 4, while smaller is size 2 and wraps)
 				);
 
@@ -59,25 +59,35 @@ export class Group {
 		// Determine if the container has an offset of 3 and size of 1 in any direction (it wraps around)
 		let containerWraps = false;
 		const newOffset = [...this.offset];
+		const targetOffset = [...target.offset];
 
-		for (let i = 0; i < target.offset.length; i++) {
-			if (this.offset[i] !== 3 || this.size[i] !== 1) continue;
+		for (let dimension = 0; dimension < this.nDimensions; dimension++) {
+			if (this.wrapsDimension(dimension)) {
+				containerWraps = true;
+				newOffset[dimension] -= 4; // Shift the container group back
+			}
 
-			containerWraps = true;
-			newOffset[i] -= 4; // Shift the container group back
+			if (target.wrapsDimension(dimension)) {
+				targetOffset[dimension] -= 4;
+			}
 		}
 		
 		// Try again, but with the shifted coordinates
-		if (containerWraps && new Group(newOffset, this.size).partialContains(target)) {
+		if (containerWraps && new Group(newOffset, this.size).partialContains(new Group(targetOffset, target.size))) {
 			return true;
 		}
 		return false;
 	}
 
+	wrapsDimension(dimension: number) {
+		return this.offset[dimension] === 3 && this.size[dimension] === 1;
+		// return this.endCorner[dimension] <= 4;
+	}
+
 	getWrappedDimensions() {
 		const wrappedDimensions: number[] = [];
 		for (let dimension = 0; dimension < this.nDimensions; dimension++) {
-			if (this.endCorner[dimension] <= 4) continue;
+			if (!this.wrapsDimension(dimension)) continue;
 			wrappedDimensions.push(dimension);
 		}
 		return wrappedDimensions;

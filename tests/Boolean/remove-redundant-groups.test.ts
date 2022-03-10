@@ -99,6 +99,22 @@ describe(removeRedundantGroups.name, () => {
 		}
 	});
 
+	it("handles groups coverable by a single other group, with wrapping", () => {
+		{
+			const map = Karnaugh.withNDimensions(2);
+
+			const groups = new Set([
+				new Group([3, 3], [1, 1]), // ✓
+				new Group([0, 3], [0, 1]),
+			]);
+
+			expect(new Group([3, 3], [1, 1]).contains(new Group([0, 3], [0, 1]))).toBeTrue();
+
+			expect([...removeRedundantGroups(groups, map)])
+					.toIncludeSameMembers([new Group([3, 3], [1, 1])]);
+		}
+	});
+
 	it("handles groups coverable only by the union of other groups", () => {
 		{
 			const map = Karnaugh.withNDimensions(2);
